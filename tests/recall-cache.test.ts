@@ -6,8 +6,8 @@ import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { after, test } from "node:test";
 import { promisify } from "node:util";
-import { closeDb, sql } from "@aihot/backend/db";
-import { sha256 } from "@aihot/backend/lib/ids";
+import { closeDb, sql } from "@powerhot/backend/db";
+import { sha256 } from "@powerhot/backend/lib/ids";
 
 const T = `recall-cache-${tag()}`;
 const provider = await stub((_hit, req) => ({ data: (JSON.parse(req.body).input as string[])
@@ -41,9 +41,9 @@ test("fact and reading recall agree across cold, full and overflowing vector cac
     SELECT 'article', ${T} || '-filler-' || i, ${T}, ${sha256("filler")}, ARRAY[0,1]::real[] FROM generate_series(0, 29996) i`;
   const run = async (size: number, stale = false) => {
     const { stdout } = await promisify(execFile)(process.execPath, ["--input-type=module", "-e", `
-      const { vectorsFor, recallFacts, recallSelectedBackground } = await import('@aihot/backend/events/recall');
-      const { closeDb, sql } = await import('@aihot/backend/db');
-      const { sha256 } = await import('@aihot/backend/lib/ids');
+      const { vectorsFor, recallFacts, recallSelectedBackground } = await import('@powerhot/backend/events/recall');
+      const { closeDb, sql } = await import('@powerhot/backend/db');
+      const { sha256 } = await import('@powerhot/backend/lib/ids');
       try {
         const items = ${JSON.stringify(items)};
         const fillers = Array.from({ length: Math.max(0, ${size} - items.length) }, (_, i) => ({ id: ${JSON.stringify(T)} + '-filler-' + i, text: 'filler' }));

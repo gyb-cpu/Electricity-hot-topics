@@ -1,5 +1,5 @@
-import { POLICY, SITE } from "@aihot/site";
-import copy from "@aihot/site/pages/terms.md?raw";
+import { POLICY, SITE } from "@powerhot/site";
+import copy from "@powerhot/site/pages/terms.md?raw";
 import { edgeTtl } from "../lib/api.server";
 import { pageMeta } from "../lib/seo";
 import { prepareCopy } from "../lib/site-copy";

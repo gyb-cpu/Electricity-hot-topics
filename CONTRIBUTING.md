@@ -4,10 +4,10 @@
 
 ## 去哪里交流
 
-- [Issues](https://github.com/KKKKhazix/AIHOT/issues/new/choose)：可复现的 Bug 和有明确场景的功能建议。
-- [部署与使用问答](https://github.com/KKKKhazix/AIHOT/discussions/categories/q-a)：安装、配置、部署和使用问题；问题解决后可以标记答案。
-- [想法交流](https://github.com/KKKKhazix/AIHOT/discussions/categories/ideas)：先讨论方向和使用场景。
-- [作品展示](https://github.com/KKKKhazix/AIHOT/discussions/categories/show-and-tell)：分享你搭建的行业热点站和实践经验。
+- [Issues](https://github.com/gyb-cpu/Electricity-hot-topics/issues/new/choose)：可复现的 Bug 和有明确场景的功能建议。
+- [部署与使用问答](https://github.com/gyb-cpu/Electricity-hot-topics/discussions/categories/q-a)：安装、配置、部署和使用问题；问题解决后可以标记答案。
+- [想法交流](https://github.com/gyb-cpu/Electricity-hot-topics/discussions/categories/ideas)：先讨论方向和使用场景。
+- [作品展示](https://github.com/gyb-cpu/Electricity-hot-topics/discussions/categories/show-and-tell)：分享你搭建的行业热点站和实践经验。
 - 安全漏洞请按 [安全报告说明](SECURITY.md) 私密提交。
 
 ## 贡献范围
@@ -18,7 +18,7 @@
 
 ## 提交改动
 
-1. Fork 本仓库，从最新的 `main` 创建自己的分支。若只是搭建一个独立站点，可以用 [Use this template](https://github.com/KKKKhazix/AIHOT/generate)；模板生成的项目没有共享提交历史，后续贡献代码或合并上游更新更适合用 Fork。
+1. Fork 本仓库，从最新的 `main` 创建自己的分支。若只是搭建一个独立站点，可以用 [Use this template](https://github.com/gyb-cpu/Electricity-hot-topics/generate)；模板生成的项目没有共享提交历史，后续贡献代码或合并上游更新更适合用 Fork。
 2. 阅读 [AGENTS.md](AGENTS.md) 和改动对应的文档。保持一次 PR 解决一个清楚的问题，不夹带无关重构。
 3. 按 [部署文档](docs/deploy.md) 配置本地环境。使用独立测试库，开发时关闭采集、模型调用和外部推送；不使用生产数据库或真实付费服务做测试。
 4. 验证改动涉及的行为，在 PR 中写明运行结果。代码改动执行 `npm run typecheck`、`npm test`、网页构建与网页测试；后端测试库名必须以 `_test` 或 `_ci` 结尾（没有会自动创建并迁移），每个测试文件在它的副本上并行运行，所以测试数据库账号要有 `CREATEDB` 权限。运行中的站点可用 `node scripts/smoke.ts --base http://localhost:3000` 检查。纯文档或模板改动核对链接、语法和实际展示即可，不需要为了凑数量新增测试。

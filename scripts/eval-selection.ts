@@ -9,20 +9,21 @@
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import { parseArgs } from "node:util";
-import { DEPLOYMENT } from "@aihot/site";
-import { REPO_ROOT } from "@aihot/backend/config";
-import { closeDb } from "@aihot/backend/db";
+import { DEPLOYMENT } from "@powerhot/site";
+import { REPO_ROOT } from "@powerhot/backend/config";
+import { closeDb } from "@powerhot/backend/db";
 import {
   SELECTION_PROMPT_VERSION,
   buildScoreInput,
   normalizeAnalysis,
+  SCORE_CALLS,
   runSelectionPrefilter,
   runSelectionScores,
   tierThreshold,
   type AnalysisRun,
   type AnalyzeInputArticle,
-} from "@aihot/backend/editorial/analyze";
-import { importSelectBenchRun } from "@aihot/backend/admin/selectbench";
+} from "@powerhot/backend/editorial/analyze";
+import { importSelectBenchRun } from "@powerhot/backend/admin/selectbench";
 import { evalModels, pmap, positiveInt, safeReportNamePart, usageFor } from "./eval-tools.ts";
 import { selectionMetrics, selectionThresholdMetrics } from "./eval-selection-core.ts";
 
@@ -104,13 +105,13 @@ for (const model of models) {
       const prefilter = await runSelectionPrefilter(input, {}, (id) => receiptIds.push(id));
       if (prefilter.label === "BLOCK") {
         const run: AnalysisRun = { prefilter, scores: null, writing: null, structure: null };
-        return { r, out: normalizeAnalysis(run), receiptIds, error: null as string | null };
+        return { r, out: normalizeAnalysis(run), receiptIds, error: null as string | null, decided: false };
       }
 
       const threshold = tierThreshold(input.source.tier);
       if (threshold === null) {
         const run: AnalysisRun = { prefilter, scores: null, writing: null, structure: null };
-        return { r, out: normalizeAnalysis(run), receiptIds, error: null as string | null };
+        return { r, out: normalizeAnalysis(run), receiptIds, error: null as string | null, decided: false };
       }
 
       const key = buildScoreInput(input);
@@ -130,19 +131,26 @@ for (const model of models) {
       // Model output is independent of source tier; the decision threshold is not.
       const scores = shared.scores ? { ...shared.scores, threshold } : null;
       const run: AnalysisRun = { prefilter, scores, writing: null, structure: null };
-      return { r, out: normalizeAnalysis(run), receiptIds, error: null as string | null };
+      // This evaluation runs the prefilter and the two scores only, so the copy is never written and
+      // normalizeAnalysis's `selected` (which waits for a title and summary) is always false here. The
+      // selection rule is applied directly: not blocked, two scores, and their sum reaching twice the
+      // tier threshold — the same rule analyze.ts applies.
+      const values = scores && !scores.refused ? scores.values : null;
+      const sum = values?.length === SCORE_CALLS ? values.reduce((total, v) => total + v, 0) : null;
+      const decided = sum !== null && sum >= threshold * SCORE_CALLS;
+      return { r, out: normalizeAnalysis(run), receiptIds, error: null as string | null, decided };
     } catch (error) {
       return { r, out: null, receiptIds, error: String(error).slice(0, 200) };
     }
   });
   const metrics = selectionMetrics(results.map((x) => ({
     gold: x.r.gold.decision,
-    decision: x.out ? (x.out.selected ? "select" : "reject") : null,
+    decision: x.out ? (x.decided ? "select" : "reject") : null,
   })));
   const mistakes: Array<Record<string, unknown>> = [];
   for (const x of results) {
     if (!x.out || x.r.gold.decision === "either") continue;
-    const pred = x.out.selected ? "select" : "reject";
+    const pred = x.decided ? "select" : "reject";
     const gold = x.r.gold.decision;
     if (pred === "select" && gold === "reject") mistakes.push({ kind: "FP", title: x.r.material.title, score: x.out.score, reason: x.out.reasonZh, stratum: x.r.samplingContext?.samplingStratum ?? null });
     else if (pred === "reject" && gold === "select") mistakes.push({ kind: "FN", title: x.r.material.title, score: x.out.score, relevance: x.out.relevance, stratum: x.r.samplingContext?.samplingStratum ?? null });
@@ -156,10 +164,12 @@ for (const model of models) {
   };
   console.log(JSON.stringify(summary));
   // Threshold sweep keeps valid-output metrics, while coverage and completeAcc charge decisive failures.
+  // "pass" here means the prefilter did not block: the writing step this evaluation skips is not part of
+  // the sweep, and normalizeAnalysis's relevance would call every case "unknown".
   const thresholdCases = results.map((x) => ({
     gold: x.r.gold.decision,
     available: x.out !== null,
-    relevance: x.out?.relevance ?? null,
+    relevance: x.out ? (x.out.relevance === "block" ? "block" : "pass") : null,
     score: x.out?.score ?? null,
   }));
   const sweep = [];

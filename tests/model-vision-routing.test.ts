@@ -2,15 +2,15 @@
 import "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
-import { closeDb } from "@aihot/backend/db";
-import { modelsOverview, switchModel } from "@aihot/backend/admin/models";
+import { closeDb } from "@powerhot/backend/db";
+import { modelsOverview, switchModel } from "@powerhot/backend/admin/models";
 import {
   CAPABILITIES,
   capabilityAcceptsModel,
   modelFor,
   modelSupportsVision,
-} from "@aihot/backend/editorial/models";
-import { MODELS } from "@aihot/backend/providers/llm";
+} from "@powerhot/backend/editorial/models";
+import { MODELS } from "@powerhot/backend/providers/llm";
 
 after(closeDb);
 

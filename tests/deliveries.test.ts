@@ -5,10 +5,10 @@ import { gate, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
-import { config } from "@aihot/backend/config";
-import { closeDb, sql } from "@aihot/backend/db";
-import { deliverContent, resendDelivery } from "@aihot/backend/notify/deliver";
-import { pushSelected } from "@aihot/backend/notify/selected";
+import { config } from "@powerhot/backend/config";
+import { closeDb, sql } from "@powerhot/backend/db";
+import { deliverContent, resendDelivery } from "@powerhot/backend/notify/deliver";
+import { pushSelected } from "@powerhot/backend/notify/selected";
 
 const T = tag();
 const TARGET = `test-delivery-${T}`;

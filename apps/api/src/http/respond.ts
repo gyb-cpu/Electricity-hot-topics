@@ -1,10 +1,10 @@
 // Shared HTTP helpers: Problem JSON, public API headers, ETag / 304, strict query parsing.
 import { createHash } from "node:crypto";
 import type { FastifyReply, FastifyRequest } from "fastify";
-import { POLICY } from "@aihot/site";
-import { NO_STORE, PUBLIC_API_CORS } from "@aihot/contracts/http-policy";
-import { siteUrl } from "@aihot/backend/publication/links";
-import type { JsonNotice } from "@aihot/backend/modules";
+import { POLICY } from "@powerhot/site";
+import { NO_STORE, PUBLIC_API_CORS } from "@powerhot/contracts/http-policy";
+import { siteUrl } from "@powerhot/backend/publication/links";
+import type { JsonNotice } from "@powerhot/backend/modules";
 
 const PROBLEM_TITLES: Record<number, string> = {
   400: "Bad request",

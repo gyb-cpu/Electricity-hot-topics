@@ -2,19 +2,19 @@
 // Every route goes through adminHandler (session + CSRF); manual changes are audited in the modules.
 import { readFile } from "node:fs/promises";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import { actorOf } from "@aihot/backend/admin/auth";
-import { navCounts } from "@aihot/backend/admin/navigation";
-import { listAudit } from "@aihot/backend/audit";
-import { importSelectBenchRun, listSelectBenchRuns, selectBenchRun } from "@aihot/backend/admin/selectbench";
-import { modelsOverview, switchModel } from "@aihot/backend/admin/models";
-import { contentChain, overrideFields, rerun, searchContent, setSeoIndexed, setVisibility } from "@aihot/backend/admin/content";
-import { detachFromFact, mergeStories } from "@aihot/backend/events/corrections";
-import { banSource, eraseFeedback, feedbackScreenshot, listFeedback, unbanSource, updateFeedback } from "@aihot/backend/admin/feedback";
-import { requeueFailedArticles, runsOverview } from "@aihot/backend/admin/runs";
-import { resolveDelivery } from "@aihot/backend/notify/deliver";
-import { releaseReceipt } from "@aihot/backend/operations/recover";
-import { replaceContactQr, setTargetEnabled, settingsOverview, updateBudget } from "@aihot/backend/admin/settings";
-import { createSource, fetchNow, listSources, previewSource, previewStoredSource, sourceDetail, updateSource } from "@aihot/backend/admin/sources";
+import { actorOf } from "@powerhot/backend/admin/auth";
+import { navCounts } from "@powerhot/backend/admin/navigation";
+import { listAudit } from "@powerhot/backend/audit";
+import { importSelectBenchRun, listSelectBenchRuns, selectBenchRun } from "@powerhot/backend/admin/selectbench";
+import { modelsOverview, switchModel } from "@powerhot/backend/admin/models";
+import { contentChain, overrideFields, rerun, searchContent, setSeoIndexed, setVisibility } from "@powerhot/backend/admin/content";
+import { detachFromFact, mergeStories } from "@powerhot/backend/events/corrections";
+import { banSource, eraseFeedback, feedbackScreenshot, listFeedback, unbanSource, updateFeedback } from "@powerhot/backend/admin/feedback";
+import { requeueFailedArticles, runsOverview } from "@powerhot/backend/admin/runs";
+import { resolveDelivery } from "@powerhot/backend/notify/deliver";
+import { releaseReceipt } from "@powerhot/backend/operations/recover";
+import { replaceContactQr, setTargetEnabled, settingsOverview, updateBudget } from "@powerhot/backend/admin/settings";
+import { createSource, fetchNow, listSources, previewSource, previewStoredSource, sourceDetail, updateSource } from "@powerhot/backend/admin/sources";
 import { sendProblem } from "../http/respond.ts";
 import { adminHandler } from "./admin-auth.ts";
 

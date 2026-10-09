@@ -5,11 +5,11 @@
 import { tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
-import { closeDb, sql } from "@aihot/backend/db";
-import { itemFeed } from "@aihot/backend/publication/feeds";
-import { loadTimeline } from "@aihot/backend/publication/timeline";
-import { v1Items } from "@aihot/backend/publication/v1";
-import { CATEGORY_KEYS, PUBLIC_API_CATEGORY_KEYS, toPublicApiCategory } from "@aihot/contracts/taxonomy";
+import { closeDb, sql } from "@powerhot/backend/db";
+import { itemFeed } from "@powerhot/backend/publication/feeds";
+import { loadTimeline } from "@powerhot/backend/publication/timeline";
+import { v1Items } from "@powerhot/backend/publication/v1";
+import { CATEGORY_KEYS, PUBLIC_API_CATEGORY_KEYS, toPublicApiCategory } from "@powerhot/contracts/taxonomy";
 
 const T = tag();
 const SOURCE = `categories-${T}`;

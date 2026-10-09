@@ -6,15 +6,15 @@ import { embeddingsStub, gate, stub, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { after, before, test } from "node:test";
-import { closeDb, sql } from "@aihot/backend/db";
-import { upsertMaterial } from "@aihot/backend/content/materials";
-import { groupArticle } from "@aihot/backend/events/group";
-import { BatchSchema, PairSchema, verdictsByFact, type CandidateView } from "@aihot/backend/events/relate";
-import { detachFromFact, requestRegroup } from "@aihot/backend/events/corrections";
-import { sweepUngrouped } from "@aihot/backend/jobs/events";
-import { enqueue, getBoss, QUEUES, stopBoss } from "@aihot/backend/jobs/queue";
-import { recoverStaleWork, releaseReceipt } from "@aihot/backend/operations/recover";
-import { publishArticle } from "@aihot/backend/publication/publish";
+import { closeDb, sql } from "@powerhot/backend/db";
+import { upsertMaterial } from "@powerhot/backend/content/materials";
+import { groupArticle } from "@powerhot/backend/events/group";
+import { BatchSchema, PairSchema, verdictsByFact, type CandidateView } from "@powerhot/backend/events/relate";
+import { detachFromFact, requestRegroup } from "@powerhot/backend/events/corrections";
+import { sweepUngrouped } from "@powerhot/backend/jobs/events";
+import { enqueue, getBoss, QUEUES, stopBoss } from "@powerhot/backend/jobs/queue";
+import { recoverStaleWork, releaseReceipt } from "@powerhot/backend/operations/recover";
+import { publishArticle } from "@powerhot/backend/publication/publish";
 
 const T = tag();
 const sourceId = `group-reliability-${T}`;
@@ -36,7 +36,7 @@ let factId: number;
 async function report(suffix: string, composite = false) {
   const { articleId } = await upsertMaterial({ sourceId, url: `https://example.org/group-${T}/${suffix}`, title: `新模型发布${T}`, bodyText: "今日发布新模型和价格。", bodyStatus: "ok", via: "fetch", publishedAt: new Date() });
   await sql`INSERT INTO analyses (article_id,input_revision,origin,relevance,category,title_zh,summary_zh,score,selected,output)
-    VALUES (${articleId},1,'rule','pass','ai-models',${`新模型发布${T} ${suffix}`},${`新模型发布和价格${T} ${suffix}`},80,true,${sql.json({ scope: composite ? "composite" : "single", fact: { title: "新模型发布", subject: "实验室", action: "发布", object: "模型" } })})`;
+    VALUES (${articleId},1,'rule','pass','policy',${`新模型发布${T} ${suffix}`},${`新模型发布和价格${T} ${suffix}`},80,true,${sql.json({ scope: composite ? "composite" : "single", fact: { title: "新模型发布", subject: "实验室", action: "发布", object: "模型" } })})`;
   await sql`UPDATE articles SET processing_state='analyzed' WHERE id=${articleId}`;
   await publishArticle(articleId);
   return articleId;

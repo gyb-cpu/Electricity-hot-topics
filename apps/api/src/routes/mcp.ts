@@ -6,20 +6,20 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { createMcpHandler, McpServer, type McpHttpHandler } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import { POLICY, SITE } from "@aihot/site";
-import { PUBLIC_INTERFACE_VERSION } from "@aihot/contracts/http-policy";
-import { MCP_TOOL_NAMES as T, mcpToolName } from "@aihot/contracts/mcp";
-import { PUBLIC_API_CATEGORY_KEYS } from "@aihot/contracts/taxonomy";
-import { isValidDate } from "@aihot/contracts/time";
-import { config } from "@aihot/backend/config";
-import { cachedByKey } from "@aihot/backend/lib/cache";
-import { logError } from "@aihot/backend/lib/log-error";
-import { dailyAnswer, hotAnswer, latestAnswer, periodAnswer, searchAnswer, searchItems, storyAnswer } from "@aihot/backend/publication/agent";
-import { v1Items } from "@aihot/backend/publication/v1";
-import { SearchBusyError } from "@aihot/backend/publication/pool";
-import { resolveStory, v1HotTopics, v1Story } from "@aihot/backend/publication/stories";
-import { dailyWithNotes, isPeriodKey, v1Period } from "@aihot/backend/publication/reports";
-import { requestNotice, serverModules, type McpNotice } from "@aihot/backend/modules";
+import { POLICY, SITE } from "@powerhot/site";
+import { PUBLIC_INTERFACE_VERSION } from "@powerhot/contracts/http-policy";
+import { MCP_TOOL_NAMES as T, mcpToolName } from "@powerhot/contracts/mcp";
+import { PUBLIC_API_CATEGORY_KEYS } from "@powerhot/contracts/taxonomy";
+import { isValidDate } from "@powerhot/contracts/time";
+import { config } from "@powerhot/backend/config";
+import { cachedByKey } from "@powerhot/backend/lib/cache";
+import { logError } from "@powerhot/backend/lib/log-error";
+import { dailyAnswer, hotAnswer, latestAnswer, periodAnswer, searchAnswer, searchItems, storyAnswer } from "@powerhot/backend/publication/agent";
+import { v1Items } from "@powerhot/backend/publication/v1";
+import { SearchBusyError } from "@powerhot/backend/publication/pool";
+import { resolveStory, v1HotTopics, v1Story } from "@powerhot/backend/publication/stories";
+import { dailyWithNotes, isPeriodKey, v1Period } from "@powerhot/backend/publication/reports";
+import { requestNotice, serverModules, type McpNotice } from "@powerhot/backend/modules";
 
 /** What each tool is for, in the order the instructions name them; the modules' come last. */
 const USES = [

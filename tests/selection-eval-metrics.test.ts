@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { normalizeAnalysis, SCORE_CALLS } from "@powerhot/backend/editorial/analyze";
 import { selectionMetrics, selectionThresholdMetrics, type SelectionMetricCase } from "../scripts/eval-selection-core.ts";
 
 test("selection metrics keep valid-output quality separate from decisive coverage", () => {
@@ -37,6 +38,28 @@ test("selection metrics keep valid-output quality separate from decisive coverag
     selectedRate: 0.667,
     goldSelectRate: 0.5,
   });
+});
+
+test("a case scoring over the tier threshold can still be a selection without any written copy", () => {
+  // This evaluation runs the prefilter and the two scores only. normalizeAnalysis waits for a written
+  // title and summary before it calls anything "pass", so its own `selected` is false for every case
+  // here; the sweep must read the scores instead, or no threshold can ever select anything.
+  const analysed = normalizeAnalysis({
+    prefilter: { label: "PASS", reason: "电力政策", model: "m", receiptId: 1, reused: false } as never,
+    scores: { values: [94, 88], threshold: 60, model: "m", receiptId: 2, reused: false, refused: false } as never,
+    writing: null,
+    structure: null,
+  });
+  assert.equal(analysed.score, 91);
+  assert.equal(analysed.relevance, "unknown");
+  assert.equal(analysed.selected, false);
+
+  const sum = analysed.scores!.reduce((total, v) => total + v, 0);
+  assert.equal(sum >= 60 * SCORE_CALLS, true);
+  const sweep = selectionThresholdMetrics([
+    { gold: "select", available: true, relevance: "pass", score: analysed.score },
+  ], 60);
+  assert.equal(sweep.sel, 1);
 });
 
 test("either cases do not lower decisive coverage or complete accuracy", () => {

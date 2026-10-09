@@ -1,0 +1,56 @@
+---
+title: 部署
+description: Docker、域名和 HTTPS、中国大陆、更新、备份和费用。
+---
+
+# 部署
+
+## 用 Docker（推荐）
+
+```bash
+node scripts/init-env.ts --llm-key <你的模型 API Key>
+docker compose up -d --build
+```
+
+<Note>
+  站点跑起来以后，不带 Docker 直接在 Linux 或 macOS 上运行时用 WSL2。
+</Note>
+
+## 配域名和 HTTPS
+
+站点地图的进程、磁盘与 HTTP 缓存共用同一个截止时间，**不能在发送时重新计时**。自建代理或 CDN 同样要遵守。
+
+## 备份
+
+<Warning>
+  备份要包含数据库和 `.data/`。`.data/` 里有付费回执和精选评测结果，不进 Git。
+</Warning>
+
+## 安全阀
+
+`COLLECT_ENABLED`、`MODEL_CALLS_ENABLED`、`FEISHU_CONTENT_PUSH_ENABLED`、`FEISHU_INTERNAL_ENABLED`、`INDEXNOW_SUBMIT_ENABLED` 只决定「发不发出去」，不决定走哪套逻辑。只有设成 `true` 才打开。
+
+## 运行与检查
+
+```bash
+npm run typecheck
+DATABASE_URL=postgres://127.0.0.1:5432/<名字>_test npm test
+npm run build -w @powerhot/web && node --test apps/web/tests/*.test.ts
+node scripts/smoke.ts --base http://localhost:3000
+```
+
+<Note>
+  测试用的数据库名**必须**以 `_test` 或 `_ci` 结尾；没有会自动建好并迁移，账号要能建库。
+</Note>
+
+## 要花多少钱
+
+花钱的请求都经过回执（`providers/receipts.ts`）和预算熔断：每个付费请求先记一张回执，拿到结果先存再用，任务重试时复用已经付过钱的结果。
+
+<Info>
+  熔断是每个付费服务每分钟、每小时、每天的上限，后台「设置」页可以改。
+</Info>
+
+## 停用一个功能时
+
+同一个改动里删掉它的**代码、测试、文档和存下的状态**（库表与列、定时任务、settings、环境变量和 `.env.example` 里的项）。会删掉已有数据的，在更新说明里写明。

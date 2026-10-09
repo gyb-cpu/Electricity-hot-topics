@@ -1,0 +1,57 @@
+---
+title: 快速开始
+description: 用 Docker 把电力热点宝跑起来，改信源，核对第一次采集的结果。
+---
+
+# 快速开始
+
+## 需要什么
+
+- [Docker](https://docs.docker.com/get-started/get-docker/) 和 Docker Compose
+- [Node.js 24](https://nodejs.org/en/download)（只有运行 `init-env` 生成配置要用）
+- 一个 OpenAI 兼容模型的 API Key
+
+## 跑起来
+
+<CodeGroup>
+
+```bash
+# 生成 .env（会写入模型 Key 与随机密码）
+node scripts/init-env.ts --llm-key <你的模型 API Key>
+
+# 起三个进程：api、worker、web
+docker compose up -d --build
+```
+
+</CodeGroup>
+
+打开 [http://localhost:3000](http://localhost:3000)。后台在 `/admin`，管理员密码在 `.env` 的 `ADMIN_PASSWORD` 里。
+
+## 核对信源
+
+改完信源后到后台 **信源** 页，对每个信源点一次 **预览抓取**，核对条目和日期，再正式启用。
+
+<Warning>
+  能源局、中国政府网和能源监管局的栏目页是前端渲染的，HTML 里没有条目。但要渲染的数据本身就是一个可直连的 JSON，直接抓那个 JSON 就行，不需要 Jina Reader。
+</Warning>
+
+能源局的 `ds_*.json` 文件名是该站 CMS 的数据源 id，改版会变，取法写在 `industry/sources.json` 的 `$nea_json` 注释里。详见 [信源](/sources)。
+
+## 安全阀
+
+默认关：`COLLECT_ENABLED`、`MODEL_CALLS_ENABLED`、`FEISHU_*_ENABLED`、`INDEXNOW_SUBMIT_ENABLED` 只有写成 `true` 才开始采集和调用模型。
+
+`node scripts/init-env.ts` 生成的 `.env` 会打开采集和模型调用，只调界面时可以改成 `false`。
+
+## 给 Agent 用
+
+站点跑起来后，`/agent` 里有 MCP、RSS 和 API 的接入方式；只能读网页的 Agent 从 `/api/v1/agent` 开始；接口说明在 `/openapi-v1.json`。
+
+<CardGroup cols={2}>
+  <Card title="信源配置" icon="rss" href="/sources">
+    六种信源、分级与抓取频率
+  </Card>
+  <Card title="精选校准" icon="target" href="/selection">
+    用自己标注的样本重跑门槛
+  </Card>
+</CardGroup>

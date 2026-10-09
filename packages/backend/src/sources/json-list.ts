@@ -144,6 +144,15 @@ function embeddedJson(html: string, source: SourceRow): unknown {
   throw new FetchError(`embedded key ${key} not found`);
 }
 
+/** An absolute URL is kept; a relative one is resolved against the listing URL it came from. */
+function resolveAgainst(candidate: string, base: string): string {
+  try {
+    return new URL(candidate, base).toString();
+  } catch {
+    return candidate;
+  }
+}
+
 export async function fetchJsonList(source: SourceRow): Promise<Candidate[]> {
   const c = source.config;
   const url = String(c.url ?? "");
@@ -184,7 +193,9 @@ export async function fetchJsonList(source: SourceRow): Promise<Candidate[]> {
     const summary = firstString(item, c.summaryPaths);
     const summaryIsBody = c.summaryIsBody === true && !!summary;
     out.push({
-      url,
+      // A CMS list commonly links back into its own tree ("../2026…/c.html"); resolve it against the
+      // URL the listing was read from, the way rss.ts resolves xml:base, so the rest needs no absolute link.
+      url: resolveAgainst(url, res.url),
       title: collapseWhitespace(stripTags(title)),
       author: firstString(item, c.authorPaths),
       publishedAt: toDate(getPath(item, c.publishedAtPath), c.publishedAtUnit, c.publishedAtUtcOffset),

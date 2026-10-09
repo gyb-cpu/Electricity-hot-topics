@@ -1,12 +1,69 @@
 # 部署
 
+## 上线前检查清单
+
+按顺序勾。每条都写了怎么验，不靠记忆。标 ★ 的是硬阻塞项，不改完不要对外。
+
+### 1. 地址与传输 ★
+
+- [ ] **`SITE_URL` 改成正式域名**。它决定所有对外生成的地址：canonical、RSS 条目链接、`og:url`、`og:image`、sitemap、robots 的 `Sitemap:` 行、MCP 接入地址、鉴权回调、图片代理签名。留着 `http://localhost:3000` 等于全站链接指向本机。验：`curl -s <域名>/robots.txt | grep Sitemap` 看到的是正式域名。
+- [ ] **HTTPS**。证书在反向代理（caddy / nginx）终止。隐私说明里承诺了传输安全。验：`curl -sI https://<域名>/ | head -1` 是 200。
+- [ ] **`TRUST_PROXY=true`**（在反向代理后面时）。否则拿到的是代理 IP，限流把所有读者算成同一个 IP，日志里访客 IP 全是内网地址。验：日志里出现的是真实来源 IP。
+
+### 2. 密钥
+
+- [ ] `.env` 不在 Git 里（`.gitignore` 第一条）。验：`git check-ignore .env` 有输出。
+- [ ] `ADMIN_PASSWORD`、`SESSION_SECRET`、`IMG_PROXY_SIGN_SECRET`、`POSTGRES_PASSWORD` 都是随机长串（≥16 位），且与 `.env.example` 里的示例不同。
+- [ ] 模型、Jina、飞书等 API key 各自在对应服务的后台里限制了额度。框架有预算熔断（`providers/receipts.ts`），但那不是替代品。
+
+### 3. 安全阀
+
+采集和模型调用这两个阀生产上要开，其余按需。默认全关是防止误开，不是推荐状态。
+
+- [ ] `COLLECT_ENABLED=true`、`MODEL_CALLS_ENABLED=true`（不开就是空站）
+- [ ] `FEISHU_CONTENT_PUSH_ENABLED`、`FEISHU_INTERNAL_ENABLED` 按需要。**开了就意味着每条新精选都会真的推到飞书**，回补的历史条目不会推。
+- [ ] `INDEXNOW_SUBMIT_ENABLED` 按需要。
+- [ ] 阀门只在 `true` 时生效，别的值都算关。
+
+### 4. 法律与合规
+
+- [ ] `site/pages/terms.md`、`site/pages/privacy.md` 里没有"请填写"。验：`grep -c 请填写 site/pages/*.md` 为 0。
+- [ ] 运营主体、对外邮箱、日志保存期限三处已填，且是真实信息。
+- [ ] 页面没有上游框架的署名和 Logo。验：打开 `/about`，看页脚和侧栏的可见文字（页面脚本里的 localStorage 键名不渲染成文字，不算署名）。
+- [ ] 信源只展示摘要和原文链接（`site_fulltext` 与 `syndicate_fulltext` 全为 `false`）。验：`grep -c '"site_fulltext": true' industry/sources.json` 为 0。
+
+### 5. 数据与备份 ★
+
+- [ ] **配置数据库备份**。`packages/backend/src/backup.ts` 走 S3 兼容存储，需要 `DB_BACKUP_STORE_SECRET_ID` / `_SECRET_KEY` / `_BUCKET` / `_REGION` / `_DOMAIN`。**一个都没配就是没有备份**，丢了数据库等于全站重来。验：能手工跑出一次 `pg_dump`。
+- [ ] 一个从来没跑过备份的站点，第一次上线前先手工备份一次。
+- [ ] 迁移在启动时自动执行（`scripts/migrate.ts`）。升级前先备份再升级。
+
+### 6. 内容与质量
+
+- [ ] 信源在抓、无失败。验：后台"信源"页全部绿色，或查库 `SELECT count(*) FROM sources WHERE fail_count>0` 为 0。
+- [ ] 预筛与评分标准在你自己的标注样本上校准过。门槛在 `industry/selection.ts`。标签必须是读这个站的人标的，不是模型或助手替你判的。
+- [ ] 日报、周报、月报的第一期时间（`site/site.ts` 的 `EDITION_TIMES`，默认 08:00 / 周一 10:00 / 每月 1 日 10:30）符合预期。**历史回补的条目不算当日新闻**，所以刚上线时报告页是空的，第一期要等新内容进来之后。
+
+### 7. 上线后验证
+
+- [ ] `node scripts/smoke.ts --base https://<域名>` 全过。
+- [ ] 首页、`/all`、`/agent`、`/feed.xml`、`/sitemap.xml`、`/robots.txt` 都能打开。
+- [ ] 后台 `/admin` 能登录，未认证访问 `/api/admin/*` 返回 401。
+- [ ] RSS 订阅到的条目链接是正式域名。
+- [ ] 分享图（`/og/*.png`）能生成。
+- [ ] 第一条日报出刊后看一眼内容对不对。
+
+### 已知的历史遗留
+
+- 那批抓不到的栏目（动态 WAF、Node TLS 栈拒绝、上游 502）见 [信源](sources.md#抓不到的栏目四种根因判别方法)，不影响部署。
+
 ## 用 Docker（推荐）
 
 需要一台装了 Docker（带 Compose）的机器。云服务器建议至少 2 核、4 GB 内存，构建镜像时要用到。
 
 ```bash
-git clone https://github.com/KKKKhazix/AIHOT.git myhot
-cd myhot
+git clone https://github.com/gyb-cpu/Electricity-hot-topics.git
+cd Electricity-hot-topics
 node scripts/init-env.ts --llm-key <你的模型 API Key>
 ```
 
@@ -78,6 +135,18 @@ docker compose run --rm setup && docker compose up -d
 新迁移遇到长期占锁会报出文件名和等待超时，先处理占锁事务，再重跑 setup，不要跳过迁移或改写迁移账本。并发索引创建中断可能留下无效索引：核实报错中的对象后，用 `DROP INDEX CONCURRENTLY <索引名>` 清理该失败索引再重跑；有效但定义不同的同名索引须先核对差异。这些保护不改变上述 Docker 更新顺序，跨旧版本升级仍可能执行历史上的破坏性迁移。
 
 下面按时间从新到旧列出每次更新要注意的事。
+
+#### 改名为 powerhot（2026 年 10 月 9 日）
+
+仓库里的上游名字已经全部换掉：Docker 的项目名、数据库名和账号、镜像名、环境变量前缀（`POWERHOT_*`）、Cookie 和浏览器本地存储的键名、npm 包名（`@aihot/*` 改为 `@powerhot/*`），以及信源配置和公开接口里的字段名。没有旧数据的新站直接按新名字部署即可。已经在旧名字下运行过的站点，升级前先在改名之前的代码里按下方「备份」一节做一次完整备份，然后逐条处理：
+
+- **Docker 数据卷**：Compose 项目名变了，卷名跟着变，新卷是空的，旧数据不会自动接上。用新代码 `docker compose up -d --build` 启动后，按「备份」一节把备份恢复进新的数据库和数据卷。
+- **环境变量**：`AIHOT_DATA_DIR`、`AIHOT_RELEASE`、`AIHOT_ENVIRONMENT`、`AIHOT_CREDENTIALS_DIR` 改为 `POWERHOT_*`，旧名字不再读取。`.env` 里设了 `AIHOT_DATA_DIR` 的要改名，否则会静默改用默认目录（非 Docker 为仓库里的 `.data`）。
+- **数据库默认名**：没有设 `DATABASE_URL` 时默认连 `powerhot`；已经设置的 `DATABASE_URL` 不受影响。
+- **信源配置和推送接口**：信源配置里的 `_aihot` 改为 `_powerhot`，推送接口条目里的 `raw._aihot` 改为 `raw._powerhot`。`seed.ts` 不改写已入库的信源（`ON CONFLICT DO NOTHING`），要在后台或数据库里把它们的配置键改过来；推送接口的调用方也要同步改。
+- **公开接口**：条目的 `links.aihot` 改为 `links.powerhot`，API、MCP 和 Agent 接口里都是这个字段。`selected_ledger` 里已经写入的旧条目仍是旧字段名，靠变更流同步的外部程序要从头重新同步一次。这是对已有字段的改动，对外提供过接口的站点，按 `site/site.ts` 的 `interfaceVersion` 约定升主版本。
+- **登录和浏览器数据**：管理员 Cookie 改名为 `powerhot_admin`，需要重新登录；本地存储的已收藏、已读、主题、反馈草稿等键名也改了，会重置为默认值。
+- **npm 包名**：本地装过依赖的，执行一次 `npm install` 重新链接工作区（`node_modules/@powerhot/*`）。
 
 #### 原帖展示与引擎同步（2026 年 10 月 6 日）
 
@@ -158,7 +227,7 @@ MCP 的 `subscriptions/listen` 现在立即返回 HTTP 404 和 JSON-RPC `-32601 
 
 #### 升级到公开接口 4.0.0（2026 年 10 月 3 日）
 
-- **模型榜、Codex 重置监控和主题页的大事记不再是框架的一部分**，只留在 AIHOT 上。页面（`/leaderboard`、`/codex-reset`）、接口（`/api/v1/codex-resets`、`/api/v1/codex-resets/recent`、`/api/v1/agent/codex-resets`）和 MCP 工具 `<前缀>_get_codex_resets` 都去掉了，MCP 和 `/openapi-v1.json` 的版本号升到 4.0.0。迁移 `0053` 删掉它们的表（`lb_*`、`monitor_*`、`fx_rates`）和设置，定时任务及其执行队列在 worker 启动时自动撤掉，后台运行记录继续保留；要留这些数据的，升级前先备份。公司主题页的标志改成公司名的首字母。
+- **模型榜、Codex 重置监控和主题页的大事记不再是框架的一部分**，只留在上游的示范站上。页面（`/leaderboard`、`/codex-reset`）、接口（`/api/v1/codex-resets`、`/api/v1/codex-resets/recent`、`/api/v1/agent/codex-resets`）和 MCP 工具 `<前缀>_get_codex_resets` 都去掉了，MCP 和 `/openapi-v1.json` 的版本号升到 4.0.0。迁移 `0053` 删掉它们的表（`lb_*`、`monitor_*`、`fx_rates`）和设置，定时任务及其执行队列在 worker 启动时自动撤掉，后台运行记录继续保留；要留这些数据的，升级前先备份。公司主题页的标志改成公司名的首字母。
 - **行业包有几处变化**，自己改过 `industry/` 的站，合并时对照新文件补上：
   - `site.ts` 多了 `topicsTitle`、`feedbackExample`、`keywords`、`since`、`interfaceVersion`、`POLICY`（使用规则和隐私说明两页的名字与简介、X 帖子算不算全文）、`ABOUT.description`、`ABOUT.sourcesFallback`、`AGENT`、`REPORTS`、`ALERTS`、`SOURCE_DEFAULTS`、`COMMUNITY_FEEDS`、`CARDS`；作者块的两张二维码卡片加了 `kind`，`ABOUT.copyright` 改成反馈页链接前后的两段。
   - 新增 `models.ts`：具名的模型和每一步默认用哪个，原来写在代码里。
@@ -189,14 +258,14 @@ MCP 的 `subscriptions/listen` 现在立即返回 HTTP 404 和 JSON-RPC `-32601 
 
 在 `.env` 里配置 `DB_BACKUP_STORE_*`（任何 S3 兼容的对象存储），每天 04:10 自动备份到那里。`DB_BACKUP_STORE_SECRET_ID`、`DB_BACKUP_STORE_SECRET_KEY`、`DB_BACKUP_STORE_BUCKET`、`DB_BACKUP_STORE_REGION` 四项都要填；不填 `DB_BACKUP_STORE_DOMAIN` 时按腾讯云 COS 拼地址（`<桶名>.cos.<地域>.myqcloud.com`），用其他 S3 兼容存储时，把这个存储桶的访问域名（含桶名，例如 AWS S3 的 `<桶名>.s3.<地域>.amazonaws.com`）填进 `DB_BACKUP_STORE_DOMAIN`。
 
-一次完整备份包含同一时间戳的数据库 `.dump` 和文件包 `.tar.gz`，文件名取自数据库名：Docker 里数据库叫 `aihot`，所以是 `aihot-<时间>.dump` 和 `aihot-files-<时间>.tar.gz`。文件包保留 `uploads/` 以及仍存本地的 `feedback-screenshots/`，不包含图片缓存或本地备份目录。已经转发到飞书的图片只保留数据库中的外部引用，文件包不保存飞书上的图片。
+一次完整备份包含同一时间戳的数据库 `.dump` 和文件包 `.tar.gz`，文件名取自数据库名：Docker 里数据库叫 `powerhot`，所以是 `powerhot-<时间>.dump` 和 `powerhot-files-<时间>.tar.gz`。文件包保留 `uploads/` 以及仍存本地的 `feedback-screenshots/`，不包含图片缓存或本地备份目录。已经转发到飞书的图片只保留数据库中的外部引用，文件包不保存飞书上的图片。
 
-恢复时同时取回这一对文件：使用与数据库版本兼容的 `pg_restore` 将 `.dump` 恢复到空数据库，再把文件包解压到数据目录根目录（Docker 中为 `/data`，非 Docker 使用 `AIHOT_DATA_DIR`，默认 `.data`），保留包内的子目录结构，并确保运行进程可读取这些文件。只恢复数据库不能找回仍由 `local:` 引用的反馈截图；旧备份中没有包含的文件也无法凭数据库引用恢复。
+恢复时同时取回这一对文件：使用与数据库版本兼容的 `pg_restore` 将 `.dump` 恢复到空数据库，再把文件包解压到数据目录根目录（Docker 中为 `/data`，非 Docker 使用 `POWERHOT_DATA_DIR`，默认 `.data`），保留包内的子目录结构，并确保运行进程可读取这些文件。只恢复数据库不能找回仍由 `local:` 引用的反馈截图；旧备份中没有包含的文件也无法凭数据库引用恢复。
 
 下面的手动导出只包含数据库，不包含上述附件目录：
 
 ```bash
-docker compose exec -T db pg_dump -U aihot aihot | gzip > myhot-$(date +%F).sql.gz
+docker compose exec -T db pg_dump -U powerhot powerhot | gzip > powerhot-$(date +%F).sql.gz
 ```
 
 数据都在三个 Docker 卷里：`db`（数据库）、`data`（上传的图片、图片缓存、本地备份）、`caddy`（证书）。`docker compose down` 不会删除它们；`docker compose down -v` 会。
@@ -230,13 +299,13 @@ docker compose logs -f --tail 100 api worker web
 ```bash
 npm ci
 node scripts/init-env.ts --llm-key <你的模型 API Key>
-createdb myhot
+createdb powerhot
 ```
 
 在 `.env` 里加上：
 
 ```bash
-DATABASE_URL=postgres://你的用户名@127.0.0.1:5432/myhot
+DATABASE_URL=postgres://你的用户名@127.0.0.1:5432/powerhot
 API_BASE_URL=http://127.0.0.1:3001
 ```
 
@@ -245,7 +314,7 @@ API_BASE_URL=http://127.0.0.1:3001
 ```bash
 node --env-file=.env scripts/migrate.ts
 node --env-file=.env scripts/seed.ts
-npm run build -w @aihot/web
+npm run build -w @powerhot/web
 
 NODE_ENV=production node --env-file=.env apps/api/src/main.ts          # 接口，3001 端口
 NODE_ENV=production node --env-file=.env apps/worker/src/main.ts       # 后台任务

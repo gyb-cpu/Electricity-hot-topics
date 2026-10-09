@@ -2,8 +2,8 @@
 // Written before the code, from the ways it can go wrong:
 // - a company topic takes an article about another company that only mentions it (several subjects,
 //   its name nowhere in the title), or drops one about it whose title names it in English, in another
-//   case, next to Chinese text, or only by a product (it is the article's only subject);
-// - a Latin name matches inside another word ("Metadata" is not Meta); a headline naming a company
+//   case, next to Chinese text, or only by an official name (it is the article's only subject);
+// - a Latin name matches inside another word ("Spice" is not SPIC); a headline naming a company
 //   that is not a subject of the article gets in;
 // - a technical-direction topic stops taking its tags;
 // - withdrawn or not yet released articles appear in a list or a count;
@@ -13,11 +13,11 @@ import { tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { after, before, test } from "node:test";
-import { closeDb, sql } from "@aihot/backend/db";
-import { upsertMaterial } from "@aihot/backend/content/materials";
-import { stopBoss } from "@aihot/backend/jobs/queue";
-import { publishArticle } from "@aihot/backend/publication/publish";
-import { TOPICS, loadTopicPage, listTopicSummaries, topicsOfStory } from "@aihot/backend/publication/topics";
+import { closeDb, sql } from "@powerhot/backend/db";
+import { upsertMaterial } from "@powerhot/backend/content/materials";
+import { stopBoss } from "@powerhot/backend/jobs/queue";
+import { publishArticle } from "@powerhot/backend/publication/publish";
+import { TOPICS, loadTopicPage, listTopicSummaries, topicsOfStory } from "@powerhot/backend/publication/topics";
 import { buildApp } from "../apps/api/src/app.ts";
 
 const T = tag();
@@ -50,6 +50,13 @@ interface Report {
   category?: string;
 }
 
+/** The classification tag that goes with a category, so the topic and the category say the same thing. */
+const categoryTag: Record<string, string> = {
+  policy: "政策发布", market: "市场交易", grid: "项目建设", coal: "项目建设", hydro: "项目建设",
+  nuclear: "项目建设", wind: "项目建设", solar: "项目建设", storage: "项目建设",
+  data: "数据发布", industry: "行业动态", opinion: "观点评论",
+};
+
 /** A published report; `fact` links it to a fact before publishing, as grouping would. */
 async function report(r: Report): Promise<string> {
   n += 1;
@@ -58,7 +65,7 @@ async function report(r: Report): Promise<string> {
   });
   await sql`UPDATE articles SET discovered_at = ${r.at}, timeline_at = ${r.at}, grouped_at = now() WHERE id = ${articleId}`;
   await sql`INSERT INTO analyses (article_id, input_revision, origin, relevance, category, title_zh, summary_zh, score, selected, subjects, tags)
-            VALUES (${articleId}, 1, 'rule', 'pass', ${r.category ?? "ai-models"}, ${r.title}, ${`摘要 ${n}`}, ${r.score ?? 80}, ${r.selected ?? true}, ${r.subjects ?? []}, ${[r.category === "ai-products" ? "产品更新" : r.category === "paper" ? "论文/研究" : r.category === "tip" ? "教程/实践" : r.category === "industry" ? "行业动态" : r.category === "opinion" ? "大佬观点" : "模型发布", ...(r.tags ?? [])]})`;
+            VALUES (${articleId}, 1, 'rule', 'pass', ${r.category ?? "policy"}, ${r.title}, ${`摘要 ${n}`}, ${r.score ?? 80}, ${r.selected ?? true}, ${r.subjects ?? []}, ${[categoryTag[r.category ?? "policy"], ...(r.tags ?? [])]})`;
   if (r.fact) await sql`INSERT INTO fact_articles (fact_id, article_id, role) VALUES (${r.fact}, ${articleId}, 'report')`;
   await publishArticle(articleId, { releasedAt: new Date(r.at.getTime() + 60_000) });
   return articleId;
@@ -91,63 +98,70 @@ async function members(slug: string): Promise<string[]> {
 }
 
 test("a company topic takes the articles about it, not the ones that only mention it", async () => {
-  const about = await report({ at: hoursAgo(30), title: `Claude Code 推出插件 ${T}`, subjects: ["anthropic"] });
-  const product = await report({ at: hoursAgo(31), title: `Sonnet 新版上线 ${T}`, subjects: ["anthropic"] });
-  const english = await report({ at: hoursAgo(32), title: `新模型发布 ${T}`, originalTitle: `Anthropic launches a model ${T}`, subjects: ["anthropic", "openai"] });
-  const subpoena = await report({ at: hoursAgo(33), title: `加州检察长向 OpenAI 发出传票 ${T}`, subjects: ["openai", "anthropic", "hugging-face"] });
-  const lowerCase = await report({ at: hoursAgo(34), title: `openai 公布新的安全框架 ${T}`, subjects: ["openai", "anthropic"] });
-  const pact = await report({ at: hoursAgo(35), title: `二十余家科技公司签署安全协议 ${T}`, subjects: ["openai", "anthropic", "google"] });
-  const metadata = await report({ at: hoursAgo(36), title: `Metadata 标准发布，OpenAI 参与 ${T}`, subjects: ["meta", "openai"] });
-  const adjacent = await report({ at: hoursAgo(37), title: `发布Meta的新模型 ${T}`, subjects: ["meta", "openai"] });
-  const headline = await report({ at: hoursAgo(38), title: `Anthropic 被一篇盘点提到 ${T}`, subjects: ["google"] });
-  const agent = await report({ at: hoursAgo(39), title: `智能体框架发布 ${T}`, tags: ["Agent"] });
+  const about = await report({ at: hoursAgo(30), title: `国家能源局印发并网运行管理规定 ${T}`, subjects: ["nea"] });
+  const project = await report({ at: hoursAgo(31), title: `华能 1 号机组并网 ${T}`, subjects: ["huaneng"] });
+  const english = await report({ at: hoursAgo(32), title: `新规发布 ${T}`, originalTitle: `NEA issues a new grid operation rule ${T}`, subjects: ["nea", "sgcc"] });
+  const mentions = await report({ at: hoursAgo(33), title: `能源监管办通报事故并点名国家电网 ${T}`, subjects: ["sgcc", "nea", "csg"] });
+  const lowerCase = await report({ at: hoursAgo(34), title: `nea 公布新的安全框架 ${T}`, subjects: ["nea", "sgcc"] });
+  const pact = await report({ at: hoursAgo(35), title: `多家电力企业签署消纳责任协议 ${T}`, subjects: ["nea", "sgcc", "cec"] });
+  const spice = await report({ at: hoursAgo(36), title: `Spice prices surge as the season warms ${T}`, subjects: ["spic", "sgcc"] });
+  const adjacent = await report({ at: hoursAgo(37), title: `发布SPIC的新机组 ${T}`, subjects: ["spic", "sgcc"] });
+  const headline = await report({ at: hoursAgo(38), title: `国家能源局被一篇盘点提到 ${T}`, subjects: ["csg"] });
+  const uhv = await report({ at: hoursAgo(39), title: `特高压通道开工 ${T}`, category: "grid", tags: ["特高压"] });
+  const regulator = await report({ at: hoursAgo(40), title: `华北能源监管局通报执法情况 ${T}`, subjects: ["energy-regulators"] });
+  const regulatorFromNea = await report({ at: hoursAgo(41), title: `能源局发文部署保供 ${T}`, subjects: ["nea"] });
 
-  const anthropic = await members("anthropic");
-  for (const id of [about, product, english]) assert.ok(anthropic.includes(id), "about Anthropic");
-  for (const id of [subpoena, lowerCase, pact, headline]) assert.ok(!anthropic.includes(id), "only mentions Anthropic");
-  const openai = await members("openai");
-  for (const id of [subpoena, lowerCase, metadata]) assert.ok(openai.includes(id), "about OpenAI");
-  for (const id of [english, pact]) assert.ok(!openai.includes(id), "only mentions OpenAI");
-  const meta = await members("meta");
-  assert.ok(meta.includes(adjacent), "Meta next to Chinese text");
-  assert.ok(!meta.includes(metadata), "Metadata is not Meta");
-  assert.ok((await members("agent")).includes(agent), "a technical direction takes its tag");
+  const nea = await members("nea");
+  for (const id of [about, english, lowerCase, regulatorFromNea]) assert.ok(nea.includes(id), "about 国家能源局");
+  for (const id of [mentions, pact, headline, regulator]) assert.ok(!nea.includes(id), "only mentions 国家能源局");
+  const sgcc = await members("sgcc");
+  for (const id of [mentions]) assert.ok(sgcc.includes(id), "about 国家电网");
+  for (const id of [english, lowerCase, pact]) assert.ok(!sgcc.includes(id), "only mentions 国家电网");
+  const spic = await members("spic");
+  assert.ok(spic.includes(adjacent), "SPIC next to Chinese text");
+  assert.ok(!spic.includes(spice), "Spice is not SPIC");
+  assert.ok((await members("uhv")).includes(uhv), "a technical direction takes its tag");
+  assert.ok(!nea.includes(project), "another company's project");
+  // The regulators are the NEA's 派出机构 but their own bodies: neither topic page swallows the other.
+  const regulators = await members("energy-regulators");
+  assert.ok(regulators.includes(regulator), "about 能源监管局");
+  assert.ok(!regulators.includes(regulatorFromNea), "a 本级发文 is not a regulator report");
 
   // The article page names the topics it belongs to.
   const topicsOf = async (id: string) => {
     const res = await app.inject({ method: "GET", url: `/api/site/items/${id}` });
     return (JSON.parse(res.body) as { topics: Array<{ slug: string }> }).topics.map((t) => t.slug);
   };
-  assert.deepEqual(await topicsOf(about), ["anthropic", "model-releases"]);
-  assert.deepEqual(await topicsOf(subpoena), ["openai", "model-releases"]);
-  assert.deepEqual(await topicsOf(pact), ["model-releases"]);
-  assert.deepEqual(await topicsOf(agent), ["agent", "model-releases"]);
+  assert.deepEqual(await topicsOf(about), ["nea", "policy-release"]);
+  assert.deepEqual(await topicsOf(mentions), ["sgcc", "policy-release"]);
+  assert.deepEqual(await topicsOf(pact), ["policy-release"]);
+  assert.deepEqual(await topicsOf(uhv), ["uhv", "projects"]);
 });
 
 test("a story page names the topics of its reports", async () => {
-  const launch = await story(`智能体框架 V2 发布 ${T}`);
-  await report({ source: OFFICIAL, at: hoursAgo(26), title: `智能体框架 V2 发布 ${T}`, tags: ["Agent"], fact: await fact(launch.id, "发布 V2") });
-  assert.deepEqual(await topicsOfStory(launch.id), [{ slug: "agent", name: "Agent 智能体" }, { slug: "model-releases", name: "模型发布" }]);
+  const launch = await story(`特高压工程 V2 开工 ${T}`);
+  await report({ source: OFFICIAL, at: hoursAgo(26), title: `特高压工程 V2 开工 ${T}`, category: "grid", tags: ["特高压"], fact: await fact(launch.id, "开工 V2") });
+  assert.deepEqual(await topicsOfStory(launch.id), [{ slug: "uhv", name: "特高压" }, { slug: "projects", name: "项目建设" }]);
 });
 
 test("withdrawn articles stay out of lists and counts", async () => {
-  const kept = await report({ at: hoursAgo(5), title: `Kimi 发布新模型 ${T}`, subjects: ["kimi"] });
-  const withdrawn = await report({ at: hoursAgo(4), title: `Kimi 撤回的消息 ${T}`, subjects: ["kimi"] });
+  const kept = await report({ at: hoursAgo(5), title: `三峡集团新机组核准 ${T}`, category: "hydro", subjects: ["three-gorges"], tags: ["储能"] });
+  const withdrawn = await report({ at: hoursAgo(4), title: `三峡集团撤回的消息 ${T}`, category: "hydro", subjects: ["three-gorges"], tags: ["储能"] });
   await sql`UPDATE publications SET visibility = 'withdrawn' WHERE article_id = ${withdrawn}`;
 
-  const data = await page("kimi");
+  const data = await page("three-gorges");
   assert.deepEqual(ids(data.items), [kept]);
   assert.equal(data.topic.total, 1);
-  const summary = (await listTopicSummaries()).topics.find((t) => t.slug === "kimi")!;
-  assert.equal(summary.latest?.title, `Kimi 发布新模型 ${T}`, "the index shows the newest public article");
+  const summary = (await listTopicSummaries()).topics.find((t) => t.slug === "three-gorges")!;
+  assert.equal(summary.latest?.title, `三峡集团新机组核准 ${T}`, "the index shows the newest public article");
 });
 
 test("every topic has a page; unknown topics and pages past the end have none", async () => {
-  const empty = await page("cursor");
+  const empty = await page("cgn");
   assert.equal(empty.topic.indexable, false, "a topic without content is not indexed");
   assert.deepEqual(empty.items, []);
   assert.equal(await loadTopicPage("not-a-topic", 1, new Date()), null);
-  assert.equal(await loadTopicPage("cursor", 2, new Date()), null);
+  assert.equal(await loadTopicPage("cgn", 2, new Date()), null);
   const index = await app.inject({ method: "GET", url: "/api/site/topics" });
   const body = JSON.parse(index.body) as { groups: Array<{ key: string }>; topics: Array<{ slug: string }> };
   assert.deepEqual(body.groups.map((g) => g.key), ["company", "field", "genre"]);

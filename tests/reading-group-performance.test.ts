@@ -2,9 +2,9 @@ import { tag } from './setup.ts';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { after, test } from 'node:test';
-import { sql, closeDb } from '@aihot/backend/db';
-import { loadTimeline } from '@aihot/backend/publication/timeline';
-import { loadStoryFollowups } from '@aihot/backend/publication/followups';
+import { sql, closeDb } from '@powerhot/backend/db';
+import { loadTimeline } from '@powerhot/backend/publication/timeline';
+import { loadStoryFollowups } from '@powerhot/backend/publication/followups';
 
 const key = `group${tag()}`;
 const storyPublicId = randomUUID();

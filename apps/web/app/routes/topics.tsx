@@ -1,7 +1,7 @@
 import { useLoaderData } from "react-router";
-import { SITE, subjectAfter, withSubject } from "@aihot/site";
+import { SITE, subjectAfter, withSubject } from "@powerhot/site";
 import type { Route } from "./+types/topics";
-import type { TopicSummary, TopicsResponse } from "@aihot/contracts/site";
+import type { TopicSummary, TopicsResponse } from "@powerhot/contracts/site";
 import { apiGet, cachedPage } from "../lib/api.server";
 import { pageReuse } from "../lib/page-reuse";
 import { breadcrumbLd, pageMeta, siteUrl } from "../lib/seo";

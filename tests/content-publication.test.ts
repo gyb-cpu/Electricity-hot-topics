@@ -2,22 +2,22 @@ import { gate, stub, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { after, test } from "node:test";
-import { closeDb, sql } from "@aihot/backend/db";
-import { pickRepresentative, representativePriority } from "@aihot/backend/publication/representative";
-import { loadTimeline } from "@aihot/backend/publication/timeline";
-import { loadStoryFollowups } from "@aihot/backend/publication/followups";
-import { loadGroupReports } from "@aihot/backend/publication/groups";
-import { loadItemDetail } from "@aihot/backend/publication/detail";
-import { loadStoryDetail, v1HotTopics, v1Story } from "@aihot/backend/publication/stories";
-import { candidates } from "@aihot/backend/reports/edition";
-import { composeStoryDigest, DIGEST_PROMPT_VERSION, DIGEST_SYSTEM, DigestSchema } from "@aihot/backend/events/digest";
-import { chatJson } from "@aihot/backend/providers/llm";
-import { computeHotRanking } from "@aihot/backend/events/hot";
-import { detachFromFact, moveToFact, rewriteStoryDigest } from "@aihot/backend/events/corrections";
-import { overrideFields, setVisibility } from "@aihot/backend/admin/content";
-import { stopBoss } from "@aihot/backend/jobs/queue";
-import { latestHotRanking } from "@aihot/backend/publication/hot";
-import { storyTexts } from "@aihot/backend/publication/story-text";
+import { closeDb, sql } from "@powerhot/backend/db";
+import { pickRepresentative, representativePriority } from "@powerhot/backend/publication/representative";
+import { loadTimeline } from "@powerhot/backend/publication/timeline";
+import { loadStoryFollowups } from "@powerhot/backend/publication/followups";
+import { loadGroupReports } from "@powerhot/backend/publication/groups";
+import { loadItemDetail } from "@powerhot/backend/publication/detail";
+import { loadStoryDetail, v1HotTopics, v1Story } from "@powerhot/backend/publication/stories";
+import { candidates } from "@powerhot/backend/reports/edition";
+import { composeStoryDigest, DIGEST_PROMPT_VERSION, DIGEST_SYSTEM, DigestSchema } from "@powerhot/backend/events/digest";
+import { chatJson } from "@powerhot/backend/providers/llm";
+import { computeHotRanking } from "@powerhot/backend/events/hot";
+import { detachFromFact, moveToFact, rewriteStoryDigest } from "@powerhot/backend/events/corrections";
+import { overrideFields, setVisibility } from "@powerhot/backend/admin/content";
+import { stopBoss } from "@powerhot/backend/jobs/queue";
+import { latestHotRanking } from "@powerhot/backend/publication/hot";
+import { storyTexts } from "@powerhot/backend/publication/story-text";
 
 const key = `evidence-${tag()}`;
 const now = new Date();
@@ -47,7 +47,7 @@ async function source(suffix: string, tier: string, owner: string | null = null,
 async function story(title = "OpenAI 发布 Dots") {
   const [s] = await sql`INSERT INTO stories (public_id,title,first_report_at,latest_at,latest) VALUES (${randomUUID()},${title},${at(100)},${at(0)},'错误的生成进展') RETURNING id, public_id`;
   const [f] = await sql`INSERT INTO facts (public_id,story_id,title,subject,action,object,conditions)
-    VALUES (${`f-${randomUUID()}`},${s!.id},${title},'OpenAI','发布','Dots','自主执行任务消耗额度') RETURNING id, public_id`;
+    VALUES (${`f-${randomUUID()}`},${s!.id},${title},'国家电网','印发','并网规定','自主执行任务消耗额度') RETURNING id, public_id`;
   return { storyId: Number(s!.id), storyPublicId: s!.public_id as string, factId: Number(f!.id), factPublicId: f!.public_id as string };
 }
 async function report(sourceId: string, group: Awaited<ReturnType<typeof story>>, opts: { title: string; hours: number; selected?: boolean; score?: number; role?: string }) {
@@ -67,28 +67,28 @@ async function report(sourceId: string, group: Awaited<ReturnType<typeof story>>
 }
 
 test("source tier and event ownership are separate; mentions of an entity do not establish authority", () => {
-  const row = { body_mode: "full" as const, score: 70, timeline_at: now, source_tier: "T2", publisher_role: null, owner_entity_id: null, fact_subject: "OpenAI" };
-  const org = { ...row, source_tier: "T1_5", publisher_role: "organization", owner_entity_id: "openai", score: 60 };
+  const row = { body_mode: "full" as const, score: 70, timeline_at: now, source_tier: "T2", publisher_role: null, owner_entity_id: null, fact_subject: "国家电网" };
+  const org = { ...row, source_tier: "T1_5", publisher_role: "organization", owner_entity_id: "sgcc", score: 60 };
   const person = { ...org, publisher_role: "person", score: 90 };
   assert.equal(pickRepresentative([person, org]), org);
   const first = { ...row, source_tier: "T1", score: 40, first_party: false };
   assert.equal(pickRepresentative([org, first]), first, "T1 does not depend on the first_party flag");
-  for (const subject of [null, "Databricks", "OpenAI合作伙伴", "Sam Altman (@sama)"]) {
+  for (const subject of [null, "某装备公司", "国家电网合作伙伴", "某处长 (@someone)"]) {
     assert.equal(representativePriority({ ...org, fact_subject: subject }), 3, String(subject));
   }
-  assert.equal(representativePriority({ ...org, fact_subject: "ChatGPT" }), 1, "exact configured product alias");
-  assert.equal(representativePriority({ ...org, fact_subject: "OpenAI / Anthropic" }), 1, "explicit co-subject list");
-  assert.equal(representativePriority({ ...org, owner_entity_id: "qwen", fact_subject: "Qwen Team" }), 1, "the company under another of its own names");
-  assert.equal(representativePriority({ ...org, owner_entity_id: "world-labs", fact_subject: "AMD + World Labs" }), 1);
-  assert.equal(representativePriority({ ...org, fact_subject: "OpenAI + " }), 3, "incomplete subject list is not evidence");
+  assert.equal(representativePriority({ ...org, fact_subject: "国网" }), 1, "exact configured alias");
+  assert.equal(representativePriority({ ...org, fact_subject: "国家电网 / 南方电网" }), 1, "explicit co-subject list");
+  assert.equal(representativePriority({ ...org, owner_entity_id: "huaneng", fact_subject: "华能集团" }), 1, "the company under another of its own names");
+  assert.equal(representativePriority({ ...org, owner_entity_id: "three-gorges", fact_subject: "三峡 + 三峡集团" }), 1);
+  assert.equal(representativePriority({ ...org, fact_subject: "国家电网 + " }), 3, "incomplete subject list is not evidence");
   assert.equal(representativePriority({ ...org, owner_entity_id: null }), 3);
   assert.equal(representativePriority({ ...org, owner_entity_id: "unregistered-org", fact_subject: "unregistered-org" }), 3, "equal unknown strings are not verified identity");
-  assert.equal(representativePriority({ ...org, fact_subject: "OpenAI + unregistered-org" }), 3, "an unrecognized co-subject is not silently accepted");
+  assert.equal(representativePriority({ ...org, fact_subject: "国家电网 + unregistered-org" }), 3, "an unrecognized co-subject is not silently accepted");
   assert.equal(representativePriority({ ...row, first_party: true } as typeof row), 3, "the first_party flag never elevates a source");
 });
 
 test("mentions cannot choose a timeline origin, anchor, representative, or a latest-progress link", async () => {
-  const organization = await source("organization", "T1_5", "openai", "organization");
+  const organization = await source("organization", "T1_5", "sgcc", "organization");
   const media = await source("media", "T2");
   const t1 = await source("t1", "T1");
   const g = await story();

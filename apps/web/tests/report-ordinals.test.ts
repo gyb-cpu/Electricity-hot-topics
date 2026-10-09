@@ -1,12 +1,12 @@
-// Run after `npm run build -w @aihot/web`. Real production server/router, synthetic HTTP API only.
+// Run after `npm run build -w @powerhot/web`. Real production server/router, synthetic HTTP API only.
 // Failure cases: the masthead numbering the newest of 405 issues 400 (the navigation index's length); an
 // issue older than the index losing its number; the calendar marking that issue as not published; the
 // daily archive counting 400 issues beside a masthead that numbers 405.
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { after, before, test } from "node:test";
-import type { ReportDetail, ReportKind, ReportNavigationEntry } from "@aihot/contracts/site";
-import { isoWeekLabel } from "@aihot/contracts/time";
+import type { ReportDetail, ReportKind, ReportNavigationEntry } from "@powerhot/contracts/site";
+import { isoWeekLabel } from "@powerhot/contracts/time";
 import { issueNumber, periodGrid } from "../app/features/report/format.ts";
 import { startWebServer, type WebServer } from "./web-server.ts";
 

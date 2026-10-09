@@ -6,15 +6,15 @@ import { embeddingsStub, gate, stub, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { after, before, test } from "node:test";
-import { closeDb, sql } from "@aihot/backend/db";
-import { detachFromFact, requestRegroup } from "@aihot/backend/events/corrections";
-import { upsertMaterial } from "@aihot/backend/content/materials";
-import { consolidate, linkRelatedStories } from "@aihot/backend/events/consolidate";
-import { groupArticle } from "@aihot/backend/events/group";
-import { mergeStoryInto } from "@aihot/backend/events/merge";
-import { candidateViews } from "@aihot/backend/events/recall";
-import { stopBoss } from "@aihot/backend/jobs/queue";
-import { publishArticle } from "@aihot/backend/publication/publish";
+import { closeDb, sql } from "@powerhot/backend/db";
+import { detachFromFact, requestRegroup } from "@powerhot/backend/events/corrections";
+import { upsertMaterial } from "@powerhot/backend/content/materials";
+import { consolidate, linkRelatedStories } from "@powerhot/backend/events/consolidate";
+import { groupArticle } from "@powerhot/backend/events/group";
+import { mergeStoryInto } from "@powerhot/backend/events/merge";
+import { candidateViews } from "@powerhot/backend/events/recall";
+import { stopBoss } from "@powerhot/backend/jobs/queue";
+import { publishArticle } from "@powerhot/backend/publication/publish";
 
 const T = tag();
 const SOURCE = `test-events-${T}`;
@@ -73,7 +73,7 @@ async function report(suffix: string, title = FACT_TITLE, summary = "摘要", pu
     sourceId: SOURCE, url: `https://example.com/events-${T}-${suffix}`, title: `Model launch ${T} ${suffix}`, bodyText: "A new model.", bodyStatus: "ok", via: "fetch", publishedAt,
   });
   await sql`INSERT INTO analyses (article_id, input_revision, origin, relevance, category, title_zh, summary_zh, score, selected, output)
-            VALUES (${articleId}, 1, 'rule', 'pass', 'ai-models', ${title}, ${summary}, 80, false, ${sql.json({ fact: { title, subject: "测试", action: "发布", object: "模型" } })})`;
+            VALUES (${articleId}, 1, 'rule', 'pass', 'policy', ${title}, ${summary}, 80, false, ${sql.json({ fact: { title, subject: "测试", action: "发布", object: "模型" } })})`;
   await publishArticle(articleId);
   return articleId;
 }

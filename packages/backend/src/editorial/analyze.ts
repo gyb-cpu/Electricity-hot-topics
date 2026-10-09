@@ -9,9 +9,9 @@
 //      understanding for selected and near-selected items, by the cheaper title/summary prompts for the rest.
 // Material with only a title or a feed summary has its article page fetched before it is judged.
 import { z } from "zod";
-import { CATEGORY_KEYS } from "@aihot/contracts/taxonomy";
-import { CATEGORIES } from "@aihot/industry/taxonomy";
-import { SELECTION } from "@aihot/industry/selection";
+import { CATEGORY_KEYS } from "@powerhot/contracts/taxonomy";
+import { CATEGORIES } from "@powerhot/industry/taxonomy";
+import { SELECTION } from "@powerhot/industry/selection";
 import { sql } from "../db.ts";
 import { chatJson, ModelOutputError, type ContentPart } from "../providers/llm.ts";
 import { completeReceipt, ProviderRejectedError, ReceiptUnknownError } from "../providers/receipts.ts";

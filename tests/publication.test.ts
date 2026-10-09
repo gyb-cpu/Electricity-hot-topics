@@ -8,16 +8,16 @@ import { randomUUID } from "node:crypto";
 import * as cheerio from "cheerio";
 import { marked } from "marked";
 import { after, before, test } from "node:test";
-import { config } from "@aihot/backend/config";
-import { closeDb, sql } from "@aihot/backend/db";
-import { overrideFields, setVisibility } from "@aihot/backend/admin/content";
-import { updateSource } from "@aihot/backend/admin/sources";
-import { upsertMaterial } from "@aihot/backend/content/materials";
-import { stopBoss } from "@aihot/backend/jobs/queue";
-import { publishArticle, republishSource } from "@aihot/backend/publication/publish";
-import { computeHotRanking } from "@aihot/backend/events/hot";
-import { latestHotRanking } from "@aihot/backend/publication/hot";
-import { loadItemShare } from "@aihot/backend/publication/og";
+import { config } from "@powerhot/backend/config";
+import { closeDb, sql } from "@powerhot/backend/db";
+import { overrideFields, setVisibility } from "@powerhot/backend/admin/content";
+import { updateSource } from "@powerhot/backend/admin/sources";
+import { upsertMaterial } from "@powerhot/backend/content/materials";
+import { stopBoss } from "@powerhot/backend/jobs/queue";
+import { publishArticle, republishSource } from "@powerhot/backend/publication/publish";
+import { computeHotRanking } from "@powerhot/backend/events/hot";
+import { latestHotRanking } from "@powerhot/backend/publication/hot";
+import { loadItemShare } from "@powerhot/backend/publication/og";
 import { buildApp } from "../apps/api/src/app.ts";
 
 const T = tag();
@@ -44,7 +44,7 @@ async function article(): Promise<string> {
     sourceId: SOURCE, url: `https://example.com/${T}-${n}`, title: `Test ${n}`, bodyText: BODY, bodyHtml: `<p>${BODY}</p>`, bodyStatus: "ok", via: "fetch", publishedAt: new Date(),
   });
   await sql`INSERT INTO analyses (article_id, input_revision, origin, relevance, category, title_zh, summary_zh, reason_zh, score, selected)
-            VALUES (${articleId}, 1, 'rule', 'pass', 'ai-models', ${`标题${n}-${T}`}, ${`SUMMARY-${n}-${T}`}, '理由', 90, true)`;
+            VALUES (${articleId}, 1, 'rule', 'pass', 'policy', ${`标题${n}-${T}`}, ${`SUMMARY-${n}-${T}`}, '理由', 90, true)`;
   return articleId;
 }
 
@@ -384,7 +384,7 @@ test("v1 story matches the website's content and fallback ordering", async () =>
   assert.equal(v1.latest, site.latest);
   assert.equal(site.latestReport.id, second);
   assert.deepEqual(v1.reports.map(({ links: { original: _, ...links }, ...r }: any) => ({ ...r, links })), site.timeline.slice(0, 50).map((r: any) => ({ id: r.id, title: r.title, summary: r.summary,
-    source: { name: r.source.name, firstParty: r.source.firstParty }, publishedAt: r.publishedAt, links: { aihot: `${config.siteUrl}/items/${r.id}` } })));
+    source: { name: r.source.name, firstParty: r.source.firstParty }, publishedAt: r.publishedAt, links: { powerhot: `${config.siteUrl}/items/${r.id}` } })));
 });
 
 test('event neighbors disappear when their last readable evidence is withdrawn', async () => {
@@ -472,7 +472,7 @@ test("minimal sync projection preserves snapshot fields, pagination bindings and
   const full = JSON.parse((await get('/api/v1/selected/snapshot?fields=default&limit=1000')).body);
   const minimal = JSON.parse((await get('/api/v1/selected/snapshot?fields=minimal&limit=1000')).body);
   const project = (i: any) => ({ id: i.id, title: i.title, source: i.source, publishedAt: i.publishedAt,
-    discoveredAt: i.discoveredAt, category: i.category, score: i.score, selected: i.selected, links: { aihot: i.links.aihot } });
+    discoveredAt: i.discoveredAt, category: i.category, score: i.score, selected: i.selected, links: { powerhot: i.links.powerhot } });
   assert.deepEqual(minimal.items, full.items.map(project));
   assert.ok(minimal.items.some((i: any) => i.id === id));
   for (const fields of ['default', 'minimal']) {

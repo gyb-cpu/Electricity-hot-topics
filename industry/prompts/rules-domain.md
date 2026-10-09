@@ -1,45 +1,45 @@
 
-【AI 领域翻译规则 — 本平台 100% 是 AI/ML/LLM 行业内容，严格遵守】
+【电力行业翻译与保留规则 — 本平台内容全部来自电力行业信源，严格遵守】
 
-1. 歧义默认值：以下词在中文有非 AI 歧义，**一律按 AI 含义翻译**：
-   - LLM = 大语言模型（绝不译"法学硕士"/"Master of Laws"）
-   - Token / tokens = 模型 token（保留英文；绝不译"代币"/"令牌"）
-   - Transformer = Transformer 架构（保留英文；不译"变压器"）
-   - Diffusion = 扩散模型（AI 生成，不是物理扩散）
-   - Agent / Agentic = AI 智能体 / 智能体的（不译"代理人"/"中介"）
-   - Alignment = 对齐（AI 安全语境）
-   - Inference = 推理（模型生成）
-   - Reasoning = 推理（注意：与 inference 都译"推理"，必要时用"链式推理"区分 CoT；reasoning model 指 o1/o3/R1 这类思考型模型）
-   - Embedding = 嵌入向量（也可保留英文）
-   - Distillation = 知识蒸馏
-   - Hallucination = 模型幻觉
-   - Fine-tune / Fine-tuning = 微调
-   - Pretrain / Pretraining = 预训练
-   - Context window = 上下文窗口
-   - Prompt = 提示词
-   - Skill / Skills = 技能（Claude 等 Agent 框架的能力包，不译"特长"）
+1. 歧义默认值：以下词在中文或英文里有非电力歧义，**一律按电力含义翻译或理解**：
+   - 负荷 / Load = 用电负荷（不译"负载""装载"）
+   - 出力 = 发电出力（机组实际发电功率）
+   - 并网 = 发电项目接入电网（不是"入网备案"）
+   - 上网电价 = 燃煤发电基准价 / 市场化交易电价（不译成"上网费"）
+   - 输配电价 = 由输配电价形成的电网环节价格
+   - 容量电价 / 容量补偿 = 按可用发电容量支付的固定费用（不是"容量费"泛指）
+   - 现货 = 电力现货市场（不译"库存现货"）
+   - 中长期 = 电力中长期交易合同（不译"长期债务"）
+   - 绿电 = 绿色电力交易；绿证 = 绿色电力证书（不译"绿色债券"）
+   - 消纳 = 新能源被电网接纳并使用（弃风弃光、利用率）
+   - 调峰 / 调频 / 备用 = 电力系统平衡服务（不是"旅游淡旺季"）
+   - 抽水蓄能 = 抽水蓄能电站（不漏掉"抽水"）
+   - 一次调频、二次调频、AGC = 频率控制手段（保留字母缩写）
+   - 现货价差 / 价差 = 市场电价之间的差额
+   - 煤耗 = 供电煤耗（每度电的耗煤量）
+   - 迎峰度夏 / 迎峰度冬 = 夏季与冬季用电高峰时段（不是"迎宾"）
+   - 双碳 = 碳达峰与碳中和（首次出现可写全称）
+   - 虚拟电厂 = 聚合分布式资源参与电力市场的运营主体（不译"虚构电厂"）
 
-2. 以下专有名词**一律保留英文原文**，不翻译不加中文括注：
-   - AI 公司：OpenAI / Anthropic / Google DeepMind / xAI / Meta AI / Mistral / DeepSeek / Cohere / HuggingFace（HF）/ Runway / ElevenLabs / Suno / Pika / Midjourney / Perplexity
-   - 模型族（举例 + 通用规则）：GPT / Claude / Gemini / Llama / Qwen / Grok / o 系列 / DeepSeek / Mistral / Mixtral / Phi / Sora / Veo / Imagen
-     **规则**：任何大模型族名、产品代号一律保留英文
-   - 模型版本号（举例 + 通用规则）：GPT-5 / Claude 4.7 / Claude Sonnet 4.6 / Llama 4 / Gemini 3 / o3 / o4 / DeepSeek-V4 / Qwen3.7
-     **规则**：版本号一字不改（包括字母数字后缀如 4o / 4.7 / 405B / V4 / R1），绝不"翻译性扩写"（不要把 "405B" 译成 "4050 亿"，不要把 "V4" 译成 "第 4 代"）
-   - 技术缩写（举例 + 通用规则）：LLM / RAG / RLHF / DPO / LoRA / QLoRA / PEFT / MoE / CoT / ReAct / KV cache / SOTA / AGI / MCP / ADK / NPU / GPU / TPU
-     **规则**：任何 2-5 字母的全大写缩写，默认按 AI/ML 含义保留英文
-   - 评测基准（举例 + 通用规则）：MMLU / GPQA / HumanEval / SWE-bench / SWE-bench Verified / AIME / HLE / ARC-AGI / ARC-AGI 2 / MT-Bench / Chatbot Arena / Aider Polyglot / LiveCodeBench
-     **规则**：以 -bench / -eval 结尾或全大写的评测名一律保留英文
-   - AI 工具/产品：Cursor / Copilot / Codex / Aider / Devin / Cline / Claude Code / Windsurf / Zed / v0 / Bolt / Lovable / Replit Agent
-   - Agent 框架：LangChain / LangGraph / LlamaIndex / CrewAI / AutoGen / Pydantic AI / Vercel AI SDK / DSPy
-   - 推理/部署：Ollama / vLLM / SGLang / TensorRT / Triton / CUDA / ROCm
-   - 通用技术：API / SDK / CLI / IDE / SaaS / CDN / SSO / OAuth / JWT / WebSocket / SSE / gRPC
+2. 以下专有名词与代号**一律保留原文，不翻译、不加中文括注**：
+   - 主管部门与机构：NDRC / 国家发改委、国家能源局 / NEA、中电联 / CEC、工信部 / MIIT、生态环境部
+   - 电网与发电集团：国家电网 / State Grid（SGCC）、南方电网 / CSG、国家能源集团（神华）、中国华能、中国大唐、中国华电、国家电投 / SPIC、三峡集团、中国广核 / CGN
+   - 电源与项目代号：机组编号（如 1 号机组、2×660MW）、工程名（如 陕北—湖北 ±800kV 特高压直流工程）、通道名（如 陇东—山东、哈密—重庆）
+   - 电压等级与电网术语（**一字不改**）：±1100kV、±800kV、500kV、220kV、110kV、35kV、10kV、kV、kWh、MW、GW、万千瓦、万千瓦时、亿千瓦时、MVA、VA、Hz、AGC、AVC、EMS、DMS、PMU、SCADA
+   - 市场与规则术语：日前 / 日内 / 实时市场、中长期、绿电 / 绿证、辅助服务、需求侧响应、容量补偿、代理购电、分时电价（峰谷）、尖峰电价、输配电价、容量电价、系统运行费、政府性基金及附加
+   - 技术与工程术语（保留英文）：N-1、UHV、±800kV、GIS、SVG、SVC、构网型 / Grid-Forming、储能（电化学储能、抽水蓄能、压缩空气储能、飞轮储能）、构网型变流器、逆变器、光伏 / PV、风机 / WT、逆变器、PERC、TOPCon、HJT
+   - 商务与金融：元/千瓦时、元/兆瓦时、亿元、万千瓦时、绿证价格、CCER、碳排放配额 CEA、电力现货市场价格（申报价、出清价、限价、上下限）
 
-3. 中国厂商**优先用官方中文品牌名**（首次出现可双标"千问（Qwen3）"，后续选一种保持一致）：
-   - 千问（Qwen）/ 文心一言 / 智谱（GLM）/ 月之暗面（Kimi）/ 深度求索（DeepSeek）/ 阶跃星辰（Step）/ 零一万物（Yi）/ 百川 / 豆包（字节）/ 混元（腾讯）/ 可灵（Kling，快手）/ 即梦（Jimeng，字节）/ MiniMax（不译）/ 美团 LongCat / 昆仑万维 Skywork / 面壁 MiniCPM / 华为昇腾 / 寒武纪
+3. 中国主体的**官方简称优先**（同一篇里保持一致，不要混用两种叫法）：
+   - 国家发展改革委（发改委）/ 国家能源局 / 国务院 / 工业和信息化部（工信部）/ 生态环境部
+   - 国家电网（国网）/ 南方电网（南网）/ 国家能源集团（神华）/ 中国华能（华能）/ 中国大唐（大唐）/ 中国华电（华电）/ 国家电投（国电投）/ 三峡集团 / 中国广核（中广核）
+   - 五大发电集团：中国华能、中国大唐、中国华电、国家电投、国家能源集团（首次出现可写“华能、大唐、华电、国家电投、国家能源集团”并列，之后任选一种）
 
-4. 代码 / 命令 / URL / 数字单位 **一字不改**保留：
-   - 反引号代码 `code` 不翻译
-   - 命令如 /code-review、pip install、npm run 不译（不要译"代码审查"）
+4. 文件名、文号、代码 / 命令 / URL / 数字单位 **一字不改**保留：
+   - 政策文号原样：发改价格〔2026〕1234号、国能发电力〔2026〕45号、中办发〔2026〕7号（不要改写括号种类与年份）
+   - 通知、办法、意见、方案的正式名称照抄，不要简写或翻译成英文
+   - 机组与设备型号原样：HR-1000、SGCC-1000/1000kV、GW-225/9-MW
    - URL 原样
-   - 数字+单位：8k context / 175B params / 3.5x speedup / $3 per M tokens / 99.9%
-   - 金额、参数量、比例、区间必须保留原文的阿拉伯数字和单位；不要把 $10B-$100B 改写成“数百亿至数千亿美元”等中文数量词
+   - 数字+单位：新增装机 1200 万千瓦、用电量 8500 亿千瓦时、上网电价 0.4530 元/千瓦时、弃风率 2.1%
+   - 金额、装机、电量、价格必须保留原文的阿拉伯数字和单位；不要把 “5000 万千瓦” 改写成 “五千万千瓦”，不要把 “0.4530 元/千瓦时” 改写成 “四角五分”，不要把区间写成模糊的中文数量词
+   - 年份照抄：原文写 2026 年就写 2026 年，不要换成“今年”“明年”

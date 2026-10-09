@@ -4,10 +4,10 @@ import { gate, pointModels, stub, tag } from "./setup.ts";
 import { analysisStep, SELECTING_SCORE } from "./analysis-steps.ts";
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
-import { closeDb, sql } from "@aihot/backend/db";
-import { upsertMaterial } from "@aihot/backend/content/materials";
-import { processArticle } from "@aihot/backend/jobs/content";
-import { stopBoss } from "@aihot/backend/jobs/queue";
+import { closeDb, sql } from "@powerhot/backend/db";
+import { upsertMaterial } from "@powerhot/backend/content/materials";
+import { processArticle } from "@powerhot/backend/jobs/content";
+import { stopBoss } from "@powerhot/backend/jobs/queue";
 
 const sourceId = `analysis-consistency-${tag()}`;
 let hold: { entered: ReturnType<typeof gate<void>>; release: ReturnType<typeof gate<void>> } | null = null;
@@ -20,8 +20,8 @@ const provider = await stub(async (_hit, request) => {
   }
   const content = step === "prefilter" ? { label: "PASS", reason: "local fixture" }
     : step === "score" ? { attentionScore: SELECTING_SCORE }
-    : step === "structure" ? { category: "ai-models", tags: [], subjects: [], scope: "single", fact: null }
-    : { itemType: "model_release", authorRole: "principal", tags: ["模型发布"], editorialJudgment: "模型能力提升", titleZh: "实验室发布新模型", summaryZh: "实验室发布新模型，并公布了评测结果与价格。" };
+    : step === "structure" ? { category: "policy", tags: [], subjects: [], scope: "single", fact: null }
+    : { itemType: "policy_document", authorRole: "principal", tags: ["政策发布"], editorialJudgment: "文件有明确的执行时间与适用范围", titleZh: "某局印发电价执行口径", summaryZh: "某局印发电价执行口径，并明确了执行时间与适用范围。" };
   return { choices: [{ message: { content: JSON.stringify(content) } }] };
 });
 pointModels(provider.url);

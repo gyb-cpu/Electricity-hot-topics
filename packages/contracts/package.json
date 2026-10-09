@@ -1,12 +1,12 @@
 {
-  "name": "@aihot/contracts",
+  "name": "@powerhot/contracts",
   "private": true,
   "type": "module",
   "exports": {
     "./*": "./src/*.ts"
   },
   "dependencies": {
-    "@aihot/industry": "*",
-    "@aihot/site": "*"
+    "@powerhot/industry": "*",
+    "@powerhot/site": "*"
   }
 }

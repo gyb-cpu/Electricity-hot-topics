@@ -2,11 +2,11 @@
 // ability. Agents only fetch these addresses and relay what comes back, so which data answers a
 // question, how it reads and what to tell the user are decided here, on the server. Programs keep
 // reading the v1 JSON, whose fields do not change.
-import { ACCESS, EDITION_WHEN, ITEM_COPY, POLICY, SITE, subjectAfter } from "@aihot/site";
-import { CATEGORIES } from "@aihot/industry/taxonomy";
-import { MCP_TOOL_NAMES as T } from "@aihot/contracts/mcp";
-import { CATEGORY_LABELS, isCategoryKey, PUBLIC_API_CATEGORY_KEYS, toPublicApiCategory, type PublicApiCategoryKey } from "@aihot/contracts/taxonomy";
-import { beijingDate, beijingTime, beijingWeekday } from "@aihot/contracts/time";
+import { ACCESS, EDITION_WHEN, ITEM_COPY, POLICY, SITE, subjectAfter } from "@powerhot/site";
+import { CATEGORIES } from "@powerhot/industry/taxonomy";
+import { MCP_TOOL_NAMES as T } from "@powerhot/contracts/mcp";
+import { CATEGORY_LABELS, isCategoryKey, PUBLIC_API_CATEGORY_KEYS, toPublicApiCategory, type PublicApiCategoryKey } from "@powerhot/contracts/taxonomy";
+import { beijingDate, beijingTime, beijingWeekday } from "@powerhot/contracts/time";
 import { serverModules } from "../modules.ts";
 import { siteUrl } from "./links.ts";
 import type { V1ItemPayload } from "./publish.ts";
@@ -43,7 +43,7 @@ const category = (key: string | null) => (key && isCategoryKey(key) ? CATEGORY_L
 
 function itemLines(items: V1ItemPayload[]): string[] {
   return items.flatMap((it, i) => [
-    `${i + 1}. [${linkText(it.title)}](${it.links.aihot})`,
+    `${i + 1}. [${linkText(it.title)}](${it.links.powerhot})`,
     `   ${[publicSourceName(it.source.name), it.publishedAt ? `发布于 ${stamp(it.publishedAt)}` : `${SITE.name} 收录于 ${stamp(it.discoveredAt)}`, category(it.category)].filter(Boolean).join(" · ")}`,
     ...(it.summary ? [`   摘要：${it.summary}`] : []),
     ...(it.reason ? [`   ${ITEM_COPY.reasonLabel}：${it.reason}`] : []),
@@ -110,7 +110,7 @@ export function hotAnswer(res: HotTopics, limit: number, via: Via): string {
     const sources = [...new Set(t.sourceNames.map(publicSourceName))];
     const names = sources.length > 6 ? `${sources.slice(0, 6).join("、")} 等` : sources.join("、");
     return [
-      `第 ${t.rank} 名：[${linkText(t.title)}](${t.links.aihot})`,
+      `第 ${t.rank} 名：[${linkText(t.title)}](${t.links.powerhot})`,
       `   信源：${names}（${t.sourceCount} 个）· 最新进展 ${stamp(t.latestAt)}`,
       via === "http" ? `   来龙去脉：${agentUrl(`/stories/${publicId}`)}` : `   来龙去脉：${T.story}，public_id=${publicId}`,
       "",
@@ -133,14 +133,14 @@ export function storyAnswer(s: Story, limit: number, via: Via): string {
     "",
     ...(s.digest ? [`事件综述：${s.digest}`, ""] : []),
     "报道时间线（从新到旧）：",
-    ...reports.map((r, i) => `${i + 1}. ${stamp(r.publishedAt)} · ${publicSourceName(r.source.name)}${r.source.firstParty ? "（一手）" : ""} · [${linkText(r.title)}](${r.links.aihot})`),
+    ...reports.map((r, i) => `${i + 1}. ${stamp(r.publishedAt)} · ${publicSourceName(r.source.name)}${r.source.firstParty ? "（一手）" : ""} · [${linkText(r.title)}](${r.links.powerhot})`),
     ...(neighbours.length ? ["", "相关事件：", ...neighbours.map((n) => `- ${n.title}：${via === "http" ? agentUrl(`/stories/${n.publicId}`) : `public_id=${n.publicId}`}`)] : []),
   ];
   return answer([
     `# ${SITE.name} 事件：${s.title}`,
     "",
     `${s.status === "active" ? "持续更新" : "历史事件"} · ${s.reportCount} 篇报道 · ${s.sourceCount} 个信源 · 首次报道 ${stamp(s.firstReportAt)}（北京时间）`,
-    `事件页：${s.links.aihot}`,
+    `事件页：${s.links.powerhot}`,
   ], data, [
     "先讲最新进展，再按时间讲清来龙去脉；综述里点明的矛盾或未证实之处要照实说。",
     "标「一手」的是当事公司或本人的发布，引用时优先用它们。",
@@ -149,13 +149,13 @@ export function storyAnswer(s: Story, limit: number, via: Via): string {
   ]);
 }
 
-type Links = { aihot: string | null; original: string };
+type Links = { powerhot: string | null; original: string };
 /** The v1 daily report (its sections are read from stored JSON, so v1Daily leaves them untyped). */
 export interface DailyReport {
   date: string;
   windowStart: string;
   windowEnd: string;
-  links: { aihot: string };
+  links: { powerhot: string };
   lead: { title: string; leadParagraph: string } | null;
   sections: { label: string; items: { title: string; summary: string; source: { name: string }; links: Links }[] }[];
   flashes: { title: string; publishedAt: string; source: { name: string }; links: Links }[];
@@ -178,19 +178,19 @@ export function dailyAnswer(r: DailyReport, via: Via, notes: Map<string, DailyNo
   for (const s of r.sections) {
     data.push(`【${s.label}】`);
     s.items.forEach((it, i) => {
-      const link = it.links.aihot ?? it.links.original;
+      const link = it.links.powerhot ?? it.links.original;
       const note = notes.get(link);
       data.push(`${i + 1}. [${linkText(it.title)}](${link}) · ${publicSourceName(it.source.name)}${note?.otherSources ? ` · 另有 ${note.otherSources} 家信源报道` : ""}`, ...(it.summary ? [`   ${it.summary}`] : []), ...noteLines(note));
     });
     data.push("");
   }
   if (r.flashes.length) {
-    data.push("【快讯】", ...r.flashes.map((f) => `- ${stamp(f.publishedAt)} · [${linkText(f.title)}](${f.links.aihot ?? f.links.original}) · ${publicSourceName(f.source.name)}`), "");
+    data.push("【快讯】", ...r.flashes.map((f) => `- ${stamp(f.publishedAt)} · [${linkText(f.title)}](${f.links.powerhot ?? f.links.original}) · ${publicSourceName(f.source.name)}`), "");
   }
   return answer([
     `# ${SITE.name} 日报 · ${r.date}（${beijingWeekday(r.date)}）`,
     "",
-    `收录北京时间 ${stamp(r.windowStart)} 至 ${stamp(r.windowEnd)} 的动态，${EDITION_WHEN.daily} 发布。日报页：${r.links.aihot}`,
+    `收录北京时间 ${stamp(r.windowStart)} 至 ${stamp(r.windowEnd)} 的动态，${EDITION_WHEN.daily} 发布。日报页：${r.links.powerhot}`,
     ...(data.length ? [] : ["这一期暂时没有可以展示的条目。"]),
   ], data.length ? data : null, [
     "先讲头条，再按栏目挑重点；用户要全文再全部列出。每条是一件事，「相关」是同一件事的其他进展或同一场发布的其他内容。",
@@ -208,7 +208,7 @@ export interface PeriodReport {
   month?: string;
   periodStart: string | null;
   periodEnd: string | null;
-  links: { aihot: string };
+  links: { powerhot: string };
   headline: string | null;
   overview: string | null;
   sections: { label: string; summary: string | null; items: { title: string; summary: string; source: { name: string }; links: Links; publishedAt: string | null }[] }[];
@@ -225,7 +225,7 @@ export function periodAnswer(r: PeriodReport, kind: "weekly" | "monthly", via: V
   for (const s of r.sections) {
     data.push(`【${s.label}】`, ...(s.summary ? [`导读：${s.summary}`] : []));
     s.items.forEach((it, i) => {
-      const link = it.links.aihot ?? it.links.original;
+      const link = it.links.powerhot ?? it.links.original;
       const when = it.publishedAt ? `（${beijingDate(it.publishedAt).slice(5)}）` : "";
       data.push(`${i + 1}. [${linkText(it.title)}](${link}) · ${publicSourceName(it.source.name)}${when}`, ...(it.summary ? [`   ${it.summary}`] : []));
     });
@@ -238,7 +238,7 @@ export function periodAnswer(r: PeriodReport, kind: "weekly" | "monthly", via: V
   return answer([
     `# ${SITE.name} ${name} · ${key}`,
     "",
-    `从${days}的日报里选出的重点，${EDITION_WHEN[kind]}（北京时间）发布。${name}页：${r.links.aihot}`,
+    `从${days}的日报里选出的重点，${EDITION_WHEN[kind]}（北京时间）发布。${name}页：${r.links.powerhot}`,
     ...(data.length ? [] : ["这一期暂时没有可以展示的条目。"]),
   ], data.length ? data : null, [
     "先讲头条和总述，再按栏目挑重点；用户要全文再全部列出。",

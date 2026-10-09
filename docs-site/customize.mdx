@@ -1,0 +1,58 @@
+---
+title: 把它改成你的行业
+description: 换行业时，站名、分类、主题、信源、提示词、门槛、品牌分别改哪里。
+---
+
+# 把它改成你的行业
+
+通常**不需要改** `apps/` 和 `packages/`。框架里没有、只有你这个站要的功能，做成模块放进 `modules/`。
+
+## 1. 站名和文案
+
+`site/site.ts` — 站名、出刊时间（`EDITION_TIMES`）、首页文案、日报周报月报上的说法。
+
+## 2. 分类、标签和主题
+
+`industry/taxonomy.ts`（类别与标签词表）、`industry/topics.json`（主题目录）。
+
+<Note>
+  `tests/` 里部分测试用的是示例行业的分类、标签和公司，改了以后把这些例子换成新行业的对应项。
+</Note>
+
+## 3. 信源
+
+`industry/sources.json` — 首次启动时导入的示范信源。改完到后台对每个信源点一次「预览抓取」。
+
+## 4. 精选标准
+
+`industry/prompts/selection-score.md` — **最值得花时间的地方**。它写着「什么样的消息算重要、什么样的算噪声」。
+
+<Warning>
+  改评分标准时保留原有结构（内容类型、五个维度加权、噪声压制、安全边界），替换的是**例子**。
+</Warning>
+
+## 5. 门槛
+
+`industry/selection.ts`。**不要凭感觉改数字** —— 用你自己标注的样本重跑 `scripts/eval-selection.ts`，见 [精选与校准](/selection)。
+
+## 6. 品牌
+
+`site/brand/` — 图标、Logo、日报报头字。
+
+## 7. 页面和固定文件
+
+`site/pages/`（条款与隐私说明）、`site/public/`（发布在网站根目录的固定文件，替换占位符后发布）、`site/changelog.json`。
+
+<Info>
+  条款和隐私说明的内容要本人确认：`site/pages/` 只是模板。
+</Info>
+
+## 8. 每一步的模型
+
+`site/models.ts`；后台「模型与评测」页可以按步切换。
+
+---
+
+<Warning>
+  要问使用者本人、不要替他决定的：站名；盯哪些信源；什么消息重要、什么是噪声；分类怎么分；条款和隐私说明的内容。
+</Warning>

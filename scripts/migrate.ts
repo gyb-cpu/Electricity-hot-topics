@@ -75,8 +75,8 @@ export async function runMigrations(sql: postgres.Sql, root: string): Promise<nu
 }
 
 if (import.meta.main) {
-  const { REPO_ROOT } = await import("@aihot/backend/config");
-  const { closeDb, sql } = await import("@aihot/backend/db");
+  const { REPO_ROOT } = await import("@powerhot/backend/config");
+  const { closeDb, sql } = await import("@powerhot/backend/db");
   try { await runMigrations(sql, REPO_ROOT); }
   finally { await closeDb(); }
 }

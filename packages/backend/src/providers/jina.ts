@@ -7,6 +7,9 @@ import { assertAccepted, paidRequest } from "./receipts.ts";
 /** Jina's answer starts with header lines (Title, URL Source, Published Time); the page follows this line. */
 const CONTENT = "\nMarkdown Content:\n";
 
+/** No credential means the fallback is simply not there, which is not the article's failure. */
+export class JinaUnavailableError extends Error {}
+
 /**
  * Reads a page through Jina: `raw` is the whole answer, `markdown` the page after its header lines.
  * The receipt key is the target URL plus the day, so a same-day retry of an article's body or detail
@@ -19,7 +22,7 @@ export async function jinaRead(
   opts: { purpose: string; subject: string; format?: "markdown" | "html"; cacheToleranceSeconds?: number; perRead?: boolean },
 ): Promise<{ markdown: string; raw: string; receiptId: number }> {
   const key = credential("collectors", "JINA_API_KEY");
-  if (!key) throw new Error("JINA_API_KEY is not configured");
+  if (!key) throw new JinaUnavailableError("JINA_API_KEY is not configured");
   const base = (credential("collectors", "JINA_BASE_URL") ?? "https://r.jina.ai").replace(/\/$/, "");
   // A listing whose freshness matters (xAI news) caps how old Jina's cached rendering may be.
   const tolerance: Record<string, string> = Number.isInteger(opts.cacheToleranceSeconds) && opts.cacheToleranceSeconds! >= 0 ? { "x-cache-tolerance": String(opts.cacheToleranceSeconds) } : {};

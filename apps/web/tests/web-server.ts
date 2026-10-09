@@ -1,4 +1,4 @@
-// Runs the production web server (apps/web/server.ts, after `npm run build -w @aihot/web`) in front of
+// Runs the production web server (apps/web/server.ts, after `npm run build -w @powerhot/web`) in front of
 // a synthetic api, for tests that read pages over HTTP or in a browser.
 import { spawn } from "node:child_process";
 import { once } from "node:events";

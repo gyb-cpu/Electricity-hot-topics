@@ -5,12 +5,12 @@ import { tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import http from "node:http";
 import { after, before, test } from "node:test";
-import { config } from "@aihot/backend/config";
-import { closeDb, sql } from "@aihot/backend/db";
-import { autoReleaseUnknownReceipts } from "@aihot/backend/operations/recover";
-import { stopBoss } from "@aihot/backend/jobs/queue";
-import { collectSource } from "@aihot/backend/sources/collect";
-import { previewStoredSource } from "@aihot/backend/admin/sources";
+import { config } from "@powerhot/backend/config";
+import { closeDb, sql } from "@powerhot/backend/db";
+import { autoReleaseUnknownReceipts } from "@powerhot/backend/operations/recover";
+import { stopBoss } from "@powerhot/backend/jobs/queue";
+import { collectSource } from "@powerhot/backend/sources/collect";
+import { previewStoredSource } from "@powerhot/backend/admin/sources";
 
 const T = tag();
 const SOURCE = `test-jina-listing-${T}`;

@@ -5,11 +5,11 @@ import { pointModels, stub, tag } from "./setup.ts";
 import { analysisStep, SELECTING_SCORE } from "./analysis-steps.ts";
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
-import { closeDb, sql } from "@aihot/backend/db";
-import { upsertMaterial } from "@aihot/backend/content/materials";
-import { analyzeArticle } from "@aihot/backend/editorial/analyze";
-import { publishArticle } from "@aihot/backend/publication/publish";
-import { stopBoss } from "@aihot/backend/jobs/queue";
+import { closeDb, sql } from "@powerhot/backend/db";
+import { upsertMaterial } from "@powerhot/backend/content/materials";
+import { analyzeArticle } from "@powerhot/backend/editorial/analyze";
+import { publishArticle } from "@powerhot/backend/publication/publish";
+import { stopBoss } from "@powerhot/backend/jobs/queue";
 import { buildApp } from "../apps/api/src/app.ts";
 
 const source = `original-post-${tag()}`;
@@ -19,7 +19,7 @@ const provider = await stub((_hit, req) => {
   requests.push(step);
   const content = step === "prefilter" ? { label: "UNKNOWN", reason: "No standalone text evidence" }
     : step === "score" ? { attentionScore: req.body.includes("high-score") ? SELECTING_SCORE : 12 }
-    : step === "structure" ? { category: "ai-products", tags: [], subjects: [], scope: "single", fact: null }
+    : step === "structure" ? { category: "market", tags: [], subjects: [], scope: "single", fact: null }
     : step === "understand" ? { itemType: "product_update", authorRole: "principal", tags: [], editorialJudgment: "产品更新", titleZh: "实际正文标题", summaryZh: "这是实际正文的中文摘要。" }
     : "title_zh: 实际正文标题\nbody_zh: 这是实际正文的中文摘要。";
   return { choices: [{ message: { content: typeof content === "string" ? content : JSON.stringify(content) } }] };

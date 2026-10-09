@@ -1,0 +1,13 @@
+{
+  "name": "@powerhot/docs-site",
+  "private": true,
+  "type": "module",
+  "description": "Mintlify 文档站。只负责文档，不参与主工程的构建、测试和部署。",
+  "scripts": {
+    "dev": "mintlify dev --no-open",
+    "openapi": "node scripts/make-openapi.ts"
+  },
+  "devDependencies": {
+    "mintlify": "^4.0.0"
+  }
+}

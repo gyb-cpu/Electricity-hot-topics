@@ -1,6 +1,11 @@
 // 这个站用哪些模型。框架自带一个 `default`：环境变量 LLM_BASE_URL / LLM_API_KEY / LLM_MODEL 指定的模型。
-// 这里再列出具名的模型（每个用自己的地址和密钥环境变量），以及每一步默认用哪个；没写的步骤用 default。
+// 这里列出具名的模型（每个用自己的地址和密钥环境变量），以及每一步默认用哪个；没写的步骤用 default。
 // 部署时还可以用环境变量（PREFILTER_MODEL、SCORE_MODEL……）或后台的“模型与评测”页逐步改选。
+//
+// 本部署不指定具名模型：DEFAULTS 为空，每一步都跑 .env 里的 default。下面 PRESETS 里的是框架自带的
+// 具名模型目录，不配密钥就不会被用到（没有任何一步指向它们，.env.example 里对应的变量也是注释掉的）。
+// 留着它们是因为测试用它们把不同步骤的请求分发到不同的本地假服务（tests/setup.ts 的 pointModels），
+// 视觉能力路由的测试也按这些名字断言。删掉会让那批测试失去被测对象。
 
 export interface ModelPreset {
   service: string;
@@ -17,7 +22,7 @@ export interface ModelPreset {
   vision?: boolean;
 }
 
-/** 具名的模型示例（每个要配自己的密钥）。用不上可以删掉。 */
+/** 具名的模型：不配密钥就不会被用到，留着是给测试和将来逐步换模型用的。 */
 export const PRESETS: Record<string, ModelPreset> = {
   // GLM 5.3 Flash always reasons; the lowest effort keeps short structured tasks fast.
   "glm-5.3-flash": {

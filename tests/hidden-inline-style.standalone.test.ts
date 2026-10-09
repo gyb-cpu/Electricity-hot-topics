@@ -4,7 +4,7 @@
 // or settling the styles removes the hidden placeholder a noscript image is restored beside.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { readable } from "@aihot/backend/content/extract";
+import { readable } from "@powerhot/backend/content/extract";
 
 const prose = "The article explains the research methods, results and limitations, with original evidence for its conclusions. ".repeat(6);
 const marker = "SECONDARY_MARKER: this block sits inside the article. ".repeat(6);

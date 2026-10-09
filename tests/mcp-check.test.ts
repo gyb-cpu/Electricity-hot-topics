@@ -7,9 +7,9 @@ import { test } from "node:test";
 import { promisify } from "node:util";
 import Fastify from "fastify";
 import { z } from "zod";
-import { closeDb } from "@aihot/backend/db";
-import { installModules, type AgentAbility } from "@aihot/backend/modules";
-import { mcpToolName } from "@aihot/contracts/mcp";
+import { closeDb } from "@powerhot/backend/db";
+import { installModules, type AgentAbility } from "@powerhot/backend/modules";
+import { mcpToolName } from "@powerhot/contracts/mcp";
 import { registerMcp } from "../apps/api/src/routes/mcp.ts";
 
 function asyncInput(acceptEmpty: boolean) {
@@ -73,7 +73,7 @@ test("the MCP check uses module samples and keeps its failure assertions", async
     `;
     const preload = `
       import { registerHooks } from "node:module";
-      const manifestUrl = ${JSON.stringify(import.meta.resolve("@aihot/site/modules/server"))};
+      const manifestUrl = ${JSON.stringify(import.meta.resolve("@powerhot/site/modules/server"))};
       registerHooks({ load(url, context, next) {
         return url === manifestUrl ? { format: "module", source: ${JSON.stringify(source)}, shortCircuit: true } : next(url, context);
       } });

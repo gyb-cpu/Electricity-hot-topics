@@ -5,10 +5,10 @@
 // node scripts/mcp-check.ts [url] [--full]
 import { Client } from "@modelcontextprotocol/client";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
-import { PUBLIC_INTERFACE_VERSION } from "@aihot/contracts/http-policy";
-import { MCP_TOOL_NAMES as T, MCP_TOOLS, mcpToolName } from "@aihot/contracts/mcp";
-import { SITE } from "@aihot/site";
-import { SERVER_MODULES } from "@aihot/site/modules/server";
+import { PUBLIC_INTERFACE_VERSION } from "@powerhot/contracts/http-policy";
+import { MCP_TOOL_NAMES as T, MCP_TOOLS, mcpToolName } from "@powerhot/contracts/mcp";
+import { SITE } from "@powerhot/site";
+import { SERVER_MODULES } from "@powerhot/site/modules/server";
 
 const args = process.argv.slice(2);
 const full = args.includes("--full");

@@ -1,1 +1,34 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="116" fill="#13191c"/><path d="M256 92C271 199 313 241 420 256C313 271 271 313 256 420C241 313 199 271 92 256C199 241 241 199 256 92Z" fill="#2ce2e8"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#17242c"/>
+      <stop offset="1" stop-color="#0a1115"/>
+    </linearGradient>
+    <linearGradient id="bolt" x1="0.15" y1="0" x2="0.85" y2="1">
+      <stop offset="0" stop-color="#7bf7e0"/>
+      <stop offset="0.5" stop-color="#2ce2e8"/>
+      <stop offset="1" stop-color="#1494b8"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" rx="116" fill="url(#bg)"/>
+
+  <!-- the network: transmission lines and substations, broken where the bolt runs so it stays the subject -->
+  <g stroke="#2ce2e8" stroke-opacity="0.32" stroke-width="11" stroke-linecap="round" fill="none">
+    <path d="M96 156 H176"/>
+    <path d="M336 156 H416"/>
+    <path d="M96 356 H176"/>
+    <path d="M336 356 H416"/>
+    <path d="M96 156 V356"/>
+    <path d="M416 156 V356"/>
+  </g>
+  <g fill="#2ce2e8" fill-opacity="0.5">
+    <circle cx="96" cy="156" r="16"/>
+    <circle cx="416" cy="156" r="16"/>
+    <circle cx="96" cy="356" r="16"/>
+    <circle cx="416" cy="356" r="16"/>
+  </g>
+
+  <!-- the bolt, centred over the network -->
+  <path fill="url(#bolt)" d="M296 84 L156 286 h76 l-20 142 156 -216 h-90 z"/>
+</svg>

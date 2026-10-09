@@ -2,8 +2,8 @@
 // (scripts/eval-story-digests.ts --stories); the site's digest input made from a case; and the comparison
 // a run writes, as Markdown for reading.
 import { z } from "zod";
-import { byReportTime } from "@aihot/backend/events/digest";
-import type { DigestReport } from "@aihot/backend/publication/story-evidence";
+import { byReportTime } from "@powerhot/backend/events/digest";
+import type { DigestReport } from "@powerhot/backend/publication/story-evidence";
 
 const ReportSchema = z.strictObject({
   id: z.string().min(1),

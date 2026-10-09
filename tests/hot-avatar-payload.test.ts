@@ -2,10 +2,10 @@ import { tag } from './setup.ts';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { after, test } from 'node:test';
-import { closeDb, sql } from '@aihot/backend/db';
-import type { HotEntry } from '@aihot/backend/events/hot';
-import { loadHotStrip, rankingExtras } from '@aihot/backend/publication/hot';
-import { loadHot, v1HotTopics } from '@aihot/backend/publication/stories';
+import { closeDb, sql } from '@powerhot/backend/db';
+import type { HotEntry } from '@powerhot/backend/events/hot';
+import { loadHotStrip, rankingExtras } from '@powerhot/backend/publication/hot';
+import { loadHot, v1HotTopics } from '@powerhot/backend/publication/stories';
 
 // Failure cases: names or participant counts disappear; a duplicate public name consumes a face slot;
 // tier/real-image ordering changes; signal-group images leak into the payload; a missing image

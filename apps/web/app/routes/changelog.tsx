@@ -1,7 +1,7 @@
 import { useEffect, useState, type ComponentType } from "react";
 import { IntentLink } from "../components/ui/IntentLink";
-import type { ChangelogRelease, ChangelogResponse } from "@aihot/contracts/site";
-import { SITE } from "@aihot/site";
+import type { ChangelogRelease, ChangelogResponse } from "@powerhot/contracts/site";
+import { SITE } from "@powerhot/site";
 import { useLoaderData } from "react-router";
 import { apiGet, cachedPage } from "../lib/api.server";
 import { pageReuse } from "../lib/page-reuse";

@@ -1,7 +1,7 @@
-import { REPORTS, SITE } from "@aihot/site";
+import { REPORTS, SITE } from "@powerhot/site";
 import { Link, redirect, useLoaderData } from "react-router";
 import type { Route } from "./+types/topic";
-import type { TopicPage } from "@aihot/contracts/site";
+import type { TopicPage } from "@powerhot/contracts/site";
 import { cachedPage, loadOr404 } from "../lib/api.server";
 import { pageReuse } from "../lib/page-reuse";
 import { breadcrumbLd, pageMeta, titled, topicLd } from "../lib/seo";
@@ -9,7 +9,7 @@ import { DayList, Pagination } from "../features/feed/DayList";
 import { BrandMark } from "../components/BrandMark";
 import { EmptyState } from "../components/ui/Page";
 import { IconArrowLeft } from "../components/icons";
-import { beijingDate } from "@aihot/contracts/time";
+import { beijingDate } from "@powerhot/contracts/time";
 import { monthDay, monthDayTime } from "../lib/format";
 import { PhoneBar } from "../components/shell/PhoneBar";
 import type { Screen } from "../components/shell/screens";

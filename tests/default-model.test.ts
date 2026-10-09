@@ -4,11 +4,11 @@ import { stub, tag } from "./setup.ts";
 import { analysisStep, SELECTING_SCORE, type AnalysisStep } from "./analysis-steps.ts";
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
-import { closeDb, sql } from "@aihot/backend/db";
-import { upsertMaterial } from "@aihot/backend/content/materials";
-import { analyzeArticle } from "@aihot/backend/editorial/analyze";
-import { CAPABILITIES, type Capability } from "@aihot/backend/editorial/models";
-import { stopBoss } from "@aihot/backend/jobs/queue";
+import { closeDb, sql } from "@powerhot/backend/db";
+import { upsertMaterial } from "@powerhot/backend/content/materials";
+import { analyzeArticle } from "@powerhot/backend/editorial/analyze";
+import { CAPABILITIES, type Capability } from "@powerhot/backend/editorial/models";
+import { stopBoss } from "@powerhot/backend/jobs/queue";
 
 // Nothing chosen per step: every capability falls back to the `default` model (a step the site
 // gives a model of its own is sent back to it by its environment variable).
@@ -26,8 +26,8 @@ const provider = await stub((_hit, req) => {
   const content =
     step === "prefilter" ? { label: "PASS", reason: "测试" }
     : step === "score" ? { attentionScore: SELECTING_SCORE }
-    : step === "understand" ? { itemType: "product_launch", authorRole: "principal", tags: ["产品更新"], editorialJudgment: "理由", titleZh: "一个模型的标题", summaryZh: "一个模型写的摘要。第二句。" }
-    : step === "structure" ? { category: "ai-products", tags: ["产品更新"], subjects: [], fact: null }
+    : step === "understand" ? { itemType: "market_change", authorRole: "principal", tags: ["规则机制"], editorialJudgment: "理由", titleZh: "一条市场规则的标题", summaryZh: "一条市场规则写的摘要。第二句。" }
+    : step === "structure" ? { category: "market", tags: ["规则机制"], subjects: [], fact: null }
     : "title_zh: 标题\nsummary_zh: 摘要。";
   return { id: `stub-${seen.length}`, choices: [{ message: { content: typeof content === "string" ? content : JSON.stringify(content) } }], usage: { prompt_tokens: 1, completion_tokens: 1 } };
 });
@@ -44,12 +44,12 @@ after(async () => {
 
 test("one model runs the prefilter, both scores, the writing and the structure", async () => {
   const { articleId } = await upsertMaterial({
-    sourceId: SOURCE, url: `https://example.com/${T}`, title: `A product launch ${T}`, bodyText: `A company launched a product with pricing and availability. ${T} `.repeat(6),
+    sourceId: SOURCE, url: `https://example.com/${T}`, title: `A market rule change ${T}`, bodyText: `An agency issued a market rule with an effective date and a scope. ${T} `.repeat(6),
     bodyStatus: "ok", via: "fetch", publishedAt: new Date(),
   } as never);
   const res = await analyzeArticle(articleId);
   assert.equal(res!.output!.selected, true);
-  assert.equal(res!.output!.titleZh, "一个模型的标题");
+  assert.equal(res!.output!.titleZh, "一条市场规则的标题");
   assert.deepEqual(seen.map((r) => r.step).sort(), ["prefilter", "score", "score", "structure", "understand"]);
   assert.ok(seen.every((r) => r.model === "one-model"), "every request names the configured model");
   const services = await sql<{ service: string }[]>`SELECT DISTINCT service FROM receipts WHERE subject LIKE ${`article:${articleId}%`}`;

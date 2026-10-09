@@ -4,11 +4,11 @@
 import { tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, before, mock, test } from "node:test";
-import { closeDb, sql } from "@aihot/backend/db";
-import { upsertMaterial } from "@aihot/backend/content/materials";
-import { getBoss, stopBoss } from "@aihot/backend/jobs/queue";
-import { publishArticle } from "@aihot/backend/publication/publish";
-import { selectedContent } from "@aihot/backend/notify/selected-content";
+import { closeDb, sql } from "@powerhot/backend/db";
+import { upsertMaterial } from "@powerhot/backend/content/materials";
+import { getBoss, stopBoss } from "@powerhot/backend/jobs/queue";
+import { publishArticle } from "@powerhot/backend/publication/publish";
+import { selectedContent } from "@powerhot/backend/notify/selected-content";
 import { buildApp } from "../apps/api/src/app.ts";
 
 const T = tag();
@@ -28,7 +28,7 @@ async function candidate(name: string) {
   const { articleId } = await upsertMaterial({ sourceId: SOURCE, url: `https://example.org/${T}/${name}`,
     title: `${T} ${name}`, bodyText: 'A new public result with evidence.', bodyStatus: 'ok', via: 'fetch', publishedAt: new Date() });
   await sql`INSERT INTO analyses(article_id,input_revision,origin,relevance,category,title_zh,summary_zh,reason_zh,score,selected)
-    VALUES (${articleId},1,'rule','pass','ai-models',${`新闻 ${T} ${name}`},'有证据的新结果','推荐理由',90,true)`;
+    VALUES (${articleId},1,'rule','pass','policy',${`新闻 ${T} ${name}`},'有证据的新结果','推荐理由',90,true)`;
   return articleId;
 }
 const read = async (path: string) => (await app.inject({ method: 'GET', url: path })).body;

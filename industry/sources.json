@@ -1,20 +1,36 @@
 {
   "$comment": "示范信源：首次启动时导入（scripts/seed.ts），已存在的不会被覆盖。之后在后台“信源”里新建、修改和暂停。字段说明见 docs/customize.md。",
+  "$provenance": "按桌面“栏目汇总表.xlsx”（50 个部门、480 行）接入。表里可配的内容栏目共 300 个，配进来 165 个：10 个手写（国家能源局 5 个走 ds_*.json、发改委 3 个、四川发改委 1 个、中国政府网 1 个走 ZUIXINZHENGCE.json），155 个由脚本自动识别 CSS 选择器、并用框架自己的 fetchWebList 逐个验证过能出条目和日期。没配的 149 个，根因都已实测，别再重跑排查：83 个是自动识别没找到重复列表结构（未必不可用，需要人工写选择器，是这批里最大的一块）；26 个是 JS 空壳（含国网新能源云 6 个，属动态 WAF）；10 个是动态 WAF 挑战（HTTP 412 + $_ts，要执行 JS 才放行：湖北发改委 6、甘肃发改委 4）；8 个是旧的 TLS 重协商（江西发改委）、8 个是 TLS 椭圆曲线点非法（湖南发改委 6、湖南省政府 2）、8 个是上游 502（广西发改委）——这 24 个 curl 都能返回完整内容，是 Node 24.21.0 的 TLS 栈拒绝，四个开关都试过无效，见 docs/sources.md 的“抓不到的栏目”；1 个域名不通（云南监管办）；5 个是表里网址列填了页面标题、超链接也没有内容栏目地址（含国网新能源云剩余栏目）；能源局 6 个“时政要闻”属转载要闻、结构不同；能源法律法规汇编不是列表页。",
+  "$official": "以官方一手为主。分三类抓法：发改委与四川发改委的栏目页是服务端渲染，直接抓 HTML（web_list + CSS 选择器）；国家能源局和中国政府网的栏目页是前端渲染的空壳，HTML 里没有条目——但它们的数据在一个同目录的 JSON 里（能源局是每个栏目旁边那个 ds_ 开头的文件，中国政府网在页面脚本里），直接抓那个 JSON（json_list），不需要 Jina。导入后请先“预览抓取”核对条目与日期：能源局的 ds_*.json 文件名是该站 CMS 的数据源 id，改版时会变，变了要按下面注释里的办法重新取。",
+  "$backfill": "publishedAfter 定在 2026-01-01（写死的日期），收 2026 全年的发文：新站上线就有足够内容可看，又不至于把几年的历史一次灌进来。它只收严格晚于这个时点的条目，且必须带可信发布时间；早于它的存量一律不收。信源已经导入后，改这个字段不会回补旧条目——要回补得把库重建，或用外部推送接口。发改委的通知栏目有 20 页归档（index_1.html 起），只读第一页会漏掉 2026 年 5 月以前的发文，所以拆成两个信源分别读第一页和第二页；令栏目第一页就覆盖了 2026 全年。initialBackfillLimit 要放得下窗口内的条数，中国政府网一个 JSON 里有 1104 条、放进窗口的约 108 条，所以它的上限比别的大得多。",
+  "$nea_json": "能源局的 ds_*.json 文件名是该站 CMS 的数据源 id，改版时会变。取法：打开对应栏目页（如 https://www.nea.gov.cn/policy/zxwj.htm），在源码里找 <ul id=\"showData0\" ... data=\"datasource:xxxxxxxx\"> 与 preview=\"ds_\"，把 xxxxxxxx 拼成同目录的 ds_xxxxxxxx.json 就是数据地址；栏目页换成 xmsp.htm（项目核准）、xwfb/index.htm（新闻发布）、jd.htm（政策解读）、news/pcjg.htm（派出机构动态）。这些 JSON 每次只返回最新 10 条且翻页无效，所以首日每个栏目最多十条、之后靠定时抓逐步积累。中国政府网的 ZUIXINZHENGCE.json 一次给全部（约 1100 条），不受这个限制。",
+  "$todo": "还该盯但这份文件没放：各省级能源局或发改委的政策文件栏目（各省域名与页面结构各不相同，本机实测多数不通或由脚本渲染，需要时在后台逐个新建并试抓）、中电联的统计报告（cec.org.cn 列表由脚本渲染）、国家电网与南方电网的公告（实测被 WAF 拦截）。这些页面多被 WAF 或脚本挡住，需要时在后台按实际情况新建（网页列表配选择器，或找它背后的 JSON，或用 mp_account 配公众号），不要指望这份文件一次配好。",
   "sources": [
     {
-      "id": "rss-openai-news",
-      "name": "OpenAI News",
-      "kind": "rss",
+      "id": "web-ndrc-notice",
+      "name": "国家发展改革委 · 政策（通知）",
+      "kind": "web_list",
       "config": {
-        "feedUrl": "https://openai.com/news/rss.xml",
-        "_aihot": {
-          "initialBackfillLimit": 8
+        "url": "https://www.ndrc.gov.cn/xxgk/zcfb/tz/",
+        "parseMode": "html",
+        "itemSelector": "div.list > ul.u-list > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://www.ndrc.gov.cn/xxgk/zcfb/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 30,
+          "initialBackfillMonths": 12
         }
       },
       "tier": "T1",
-      "owner_entity_id": "openai",
+      "owner_entity_id": "ndrc",
       "participation_mode": "editorial",
-      "interval_minutes": 120,
+      "interval_minutes": 60,
       "tags": [
         "官方"
       ],
@@ -22,100 +38,60 @@
       "syndicate_fulltext": false
     },
     {
-      "id": "rss-google-deepmind",
-      "name": "Google DeepMind",
-      "kind": "rss",
+      "id": "web-ndrc-notice-2",
+      "name": "国家发展改革委 · 政策（通知·第二页）",
+      "kind": "web_list",
       "config": {
-        "feedUrl": "https://deepmind.google/blog/rss.xml",
-        "_aihot": {
-          "initialBackfillLimit": 8
+        "url": "https://www.ndrc.gov.cn/xxgk/zcfb/tz/index_1.html",
+        "parseMode": "html",
+        "itemSelector": "div.list > ul.u-list > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://www.ndrc.gov.cn/xxgk/zcfb/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 30,
+          "initialBackfillMonths": 12
         }
       },
       "tier": "T1",
-      "owner_entity_id": "google",
+      "owner_entity_id": "ndrc",
       "participation_mode": "editorial",
-      "interval_minutes": 120,
-      "tags": [
-        "官方"
-      ],
-      "site_fulltext": false,
-      "syndicate_fulltext": false
-    },
-    {
-      "id": "rss-google-research",
-      "name": "Google Research",
-      "kind": "rss",
-      "config": {
-        "feedUrl": "https://research.google/blog/rss/",
-        "_aihot": {
-          "initialBackfillLimit": 8
-        }
-      },
-      "tier": "T1",
-      "owner_entity_id": "google",
-      "participation_mode": "editorial",
-      "interval_minutes": 120,
+      "interval_minutes": 240,
       "tags": [
         "官方",
-        "研究"
+        "归档"
       ],
       "site_fulltext": false,
       "syndicate_fulltext": false
     },
     {
-      "id": "rss-hugging-face",
-      "name": "Hugging Face Blog",
-      "kind": "rss",
+      "id": "web-ndrc-order",
+      "name": "国家发展改革委 · 发展改革委令",
+      "kind": "web_list",
       "config": {
-        "feedUrl": "https://huggingface.co/blog/feed.xml",
-        "_aihot": {
-          "initialBackfillLimit": 8
+        "url": "https://www.ndrc.gov.cn/xxgk/zcfb/fzggwl/",
+        "parseMode": "html",
+        "itemSelector": "div.list > ul.u-list > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://www.ndrc.gov.cn/xxgk/zcfb/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 30,
+          "initialBackfillMonths": 12
         }
       },
       "tier": "T1",
-      "owner_entity_id": "hugging-face",
-      "participation_mode": "editorial",
-      "interval_minutes": 120,
-      "tags": [
-        "官方",
-        "开源"
-      ],
-      "site_fulltext": false,
-      "syndicate_fulltext": false
-    },
-    {
-      "id": "rss-microsoft-research",
-      "name": "Microsoft Research",
-      "kind": "rss",
-      "config": {
-        "feedUrl": "https://www.microsoft.com/en-us/research/feed/",
-        "_aihot": {
-          "initialBackfillLimit": 8
-        }
-      },
-      "tier": "T1",
-      "owner_entity_id": "microsoft",
-      "participation_mode": "editorial",
-      "interval_minutes": 120,
-      "tags": [
-        "官方",
-        "研究"
-      ],
-      "site_fulltext": false,
-      "syndicate_fulltext": false
-    },
-    {
-      "id": "rss-nvidia-blog",
-      "name": "NVIDIA Blog",
-      "kind": "rss",
-      "config": {
-        "feedUrl": "https://blogs.nvidia.com/feed/",
-        "_aihot": {
-          "initialBackfillLimit": 8
-        }
-      },
-      "tier": "T1",
-      "owner_entity_id": "nvidia",
+      "owner_entity_id": "ndrc",
       "participation_mode": "editorial",
       "interval_minutes": 120,
       "tags": [
@@ -125,74 +101,24 @@
       "syndicate_fulltext": false
     },
     {
-      "id": "rss-aws-ml",
-      "name": "AWS Machine Learning Blog",
-      "kind": "rss",
+      "id": "web-sc-fgw-policy",
+      "name": "四川省发展改革委 · 政策文件",
+      "kind": "web_list",
       "config": {
-        "feedUrl": "https://aws.amazon.com/blogs/machine-learning/feed/",
-        "_aihot": {
-          "initialBackfillLimit": 8
-        }
-      },
-      "tier": "T1",
-      "owner_entity_id": null,
-      "participation_mode": "editorial",
-      "interval_minutes": 120,
-      "tags": [
-        "官方",
-        "教程"
-      ],
-      "site_fulltext": false,
-      "syndicate_fulltext": false
-    },
-    {
-      "id": "rss-github-ai",
-      "name": "GitHub Blog · AI & ML",
-      "kind": "rss",
-      "config": {
-        "feedUrl": "https://github.blog/ai-and-ml/feed/",
-        "_aihot": {
-          "initialBackfillLimit": 8
-        }
-      },
-      "tier": "T1",
-      "owner_entity_id": null,
-      "participation_mode": "editorial",
-      "interval_minutes": 120,
-      "tags": [
-        "官方"
-      ],
-      "site_fulltext": false,
-      "syndicate_fulltext": false
-    },
-    {
-      "id": "rss-mistral",
-      "name": "Mistral AI",
-      "kind": "rss",
-      "config": {
-        "feedUrl": "https://mistral.ai/news/rss",
-        "_aihot": {
-          "initialBackfillLimit": 8
-        }
-      },
-      "tier": "T1",
-      "owner_entity_id": null,
-      "participation_mode": "editorial",
-      "interval_minutes": 120,
-      "tags": [
-        "官方"
-      ],
-      "site_fulltext": false,
-      "syndicate_fulltext": false
-    },
-    {
-      "id": "rss-bair",
-      "name": "Berkeley AI Research",
-      "kind": "rss",
-      "config": {
-        "feedUrl": "https://bair.berkeley.edu/blog/feed.xml",
-        "_aihot": {
-          "initialBackfillLimit": 8
+        "url": "https://fgw.sc.gov.cn/sfgw/zcwj/olist.shtml",
+        "parseMode": "html",
+        "itemSelector": "div#list-data > ul.list > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://fgw.sc.gov.cn/sfgw/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 35,
+          "initialBackfillMonths": 12
         }
       },
       "tier": "T1",
@@ -200,168 +126,5226 @@
       "participation_mode": "editorial",
       "interval_minutes": 180,
       "tags": [
-        "研究"
+        "官方",
+        "省级"
       ],
       "site_fulltext": false,
       "syndicate_fulltext": false
     },
     {
-      "id": "rss-the-verge-ai",
-      "name": "The Verge · AI",
-      "kind": "rss",
+      "id": "web-nea-latest",
+      "name": "国家能源局 · 最新文件",
+      "kind": "json_list",
       "config": {
-        "feedUrl": "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml",
-        "_aihot": {
-          "initialBackfillLimit": 8
+        "url": "https://www.nea.gov.cn/policy/ds_b4ae3efbfd3f4ffcb1bb211fa7bdb92d.json",
+        "itemsPath": "datasource",
+        "titlePaths": [
+          "showTitle",
+          "title"
+        ],
+        "urlTemplate": "{raw:publishUrl}",
+        "publishedAtPath": "publishTime",
+        "publishedAtUtcOffset": "+08:00",
+        "summaryPaths": [
+          "summary"
+        ],
+        "allowUrlPrefixes": [
+          "https://www.nea.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
         }
       },
-      "tier": "T2",
-      "owner_entity_id": null,
+      "tier": "T1",
+      "owner_entity_id": "nea",
       "participation_mode": "editorial",
-      "interval_minutes": 60,
+      "interval_minutes": 120,
       "tags": [
-        "媒体"
+        "官方"
       ],
       "site_fulltext": false,
       "syndicate_fulltext": false
     },
     {
-      "id": "rss-techcrunch-ai",
-      "name": "TechCrunch · AI",
-      "kind": "rss",
+      "id": "web-nea-approval",
+      "name": "国家能源局 · 项目核准",
+      "kind": "json_list",
       "config": {
-        "feedUrl": "https://techcrunch.com/category/artificial-intelligence/feed/",
-        "_aihot": {
-          "initialBackfillLimit": 8
+        "url": "https://www.nea.gov.cn/policy/ds_933aba5af2044bf6a7991c8632ca1921.json",
+        "itemsPath": "datasource",
+        "titlePaths": [
+          "showTitle",
+          "title"
+        ],
+        "urlTemplate": "{raw:publishUrl}",
+        "publishedAtPath": "publishTime",
+        "publishedAtUtcOffset": "+08:00",
+        "summaryPaths": [
+          "summary"
+        ],
+        "allowUrlPrefixes": [
+          "https://www.nea.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
         }
       },
-      "tier": "T2",
-      "owner_entity_id": null,
+      "tier": "T1",
+      "owner_entity_id": "nea",
       "participation_mode": "editorial",
-      "interval_minutes": 60,
+      "interval_minutes": 120,
       "tags": [
-        "媒体"
+        "官方",
+        "项目"
       ],
       "site_fulltext": false,
       "syndicate_fulltext": false
     },
     {
-      "id": "rss-ars-technica-ai",
-      "name": "Ars Technica · AI",
-      "kind": "rss",
+      "id": "web-nea-data",
+      "name": "国家能源局 · 新闻发布（用电量与市场数据）",
+      "kind": "json_list",
       "config": {
-        "feedUrl": "https://arstechnica.com/ai/feed/",
-        "_aihot": {
-          "initialBackfillLimit": 8
+        "url": "https://www.nea.gov.cn/xwfb/ds_c583b2bf6d3b4ae6a67bc08d61f5ad96.json",
+        "itemsPath": "datasource",
+        "titlePaths": [
+          "showTitle",
+          "title"
+        ],
+        "urlTemplate": "{raw:publishUrl}",
+        "publishedAtPath": "publishTime",
+        "publishedAtUtcOffset": "+08:00",
+        "summaryPaths": [
+          "summary"
+        ],
+        "allowUrlPrefixes": [
+          "https://www.nea.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
         }
       },
-      "tier": "T2",
-      "owner_entity_id": null,
+      "tier": "T1",
+      "owner_entity_id": "nea",
       "participation_mode": "editorial",
-      "interval_minutes": 60,
+      "interval_minutes": 120,
       "tags": [
-        "媒体"
+        "官方",
+        "数据"
       ],
       "site_fulltext": false,
       "syndicate_fulltext": false
     },
     {
-      "id": "rss-mit-tech-review-ai",
-      "name": "MIT Technology Review · AI",
-      "kind": "rss",
+      "id": "web-nea-interpret",
+      "name": "国家能源局 · 政策解读",
+      "kind": "json_list",
       "config": {
-        "feedUrl": "https://www.technologyreview.com/topic/artificial-intelligence/feed",
-        "_aihot": {
-          "initialBackfillLimit": 8
+        "url": "https://www.nea.gov.cn/policy/ds_323f40996d5b4b0bbfea850ea9018f09.json",
+        "itemsPath": "datasource",
+        "titlePaths": [
+          "showTitle",
+          "title"
+        ],
+        "urlTemplate": "{raw:publishUrl}",
+        "publishedAtPath": "publishTime",
+        "publishedAtUtcOffset": "+08:00",
+        "summaryPaths": [
+          "summary"
+        ],
+        "allowUrlPrefixes": [
+          "https://www.nea.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "publisherRole": "organization",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
         }
       },
-      "tier": "T2",
+      "tier": "T1_5",
+      "owner_entity_id": "nea",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "解读"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-nea-regulator",
+      "name": "能源监管机构动态（各能源监管局与省级监管办）",
+      "kind": "json_list",
+      "config": {
+        "url": "https://www.nea.gov.cn/news/ds_8e71dc8e3c204634b7377a5cc4736421.json",
+        "itemsPath": "datasource",
+        "titlePaths": [
+          "showTitle",
+          "title"
+        ],
+        "urlTemplate": "{raw:publishUrl}",
+        "publishedAtPath": "publishTime",
+        "publishedAtUtcOffset": "+08:00",
+        "summaryPaths": [
+          "summary"
+        ],
+        "allowUrlPrefixes": [
+          "https://www.nea.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "nea",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "监管"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-gov-policy",
+      "name": "中国政府网 · 最新政策",
+      "kind": "json_list",
+      "config": {
+        "url": "https://www.gov.cn/zhengce/zuixin/ZUIXINZHENGCE.json",
+        "titlePaths": [
+          "TITLE"
+        ],
+        "urlTemplate": "{raw:URL}",
+        "publishedAtPath": "DOCRELPUBTIME",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://www.gov.cn/zhengce/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 120,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "state-council",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-ndrc-tjsj-jjyx",
+      "name": "中华人民共和国国家发展和改革委员会 · 发改数据_经济运行",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.ndrc.gov.cn/fgsj/tjsj/jjyx/",
+        "parseMode": "html",
+        "itemSelector": "body > div.container > div.list > ul.u-list > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://www.ndrc.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [
+        "官方",
+        "国家级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-cepds-tzgg",
+      "name": "电力规划设计总院 · 通知公告",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.cepds.com/tzgg.jhtml",
+        "parseMode": "html",
+        "itemSelector": "div.f-in > div.g-margin > div.m-news.jsNews > ul > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "b",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://www.cepds.com/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
       "owner_entity_id": null,
       "participation_mode": "editorial",
       "interval_minutes": 120,
       "tags": [
-        "媒体"
+        "官方",
+        "国家级"
       ],
       "site_fulltext": false,
       "syndicate_fulltext": false
     },
     {
-      "id": "rss-the-decoder",
-      "name": "The Decoder",
-      "kind": "rss",
+      "id": "web-cepds-zcfgjgzzd",
+      "name": "电力规划设计总院 · 政策法规及规章制度",
+      "kind": "web_list",
       "config": {
-        "feedUrl": "https://the-decoder.com/feed/",
-        "_aihot": {
-          "initialBackfillLimit": 8
+        "url": "https://www.cepds.com/zcfgjgzzd.jhtml",
+        "parseMode": "html",
+        "itemSelector": "div.f-in > div.g-margin > div.m-news.jsNews > ul > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "b",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://www.cepds.com/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
         }
       },
-      "tier": "T2",
-      "owner_entity_id": null,
-      "participation_mode": "editorial",
-      "interval_minutes": 60,
-      "tags": [
-        "媒体"
-      ],
-      "site_fulltext": false,
-      "syndicate_fulltext": false
-    },
-    {
-      "id": "rss-simon-willison",
-      "name": "Simon Willison",
-      "kind": "rss",
-      "config": {
-        "feedUrl": "https://simonwillison.net/atom/everything/",
-        "_aihot": {
-          "initialBackfillLimit": 8
-        }
-      },
-      "tier": "T2",
+      "tier": "T1",
       "owner_entity_id": null,
       "participation_mode": "editorial",
       "interval_minutes": 120,
       "tags": [
-        "个人"
+        "官方",
+        "国家级"
       ],
       "site_fulltext": false,
       "syndicate_fulltext": false
     },
     {
-      "id": "rss-import-ai",
-      "name": "Import AI",
-      "kind": "rss",
+      "id": "web-cepds-zbbzyj",
+      "name": "电力规划设计总院 · 在编标准意见",
+      "kind": "web_list",
       "config": {
-        "feedUrl": "https://importai.substack.com/feed",
-        "_aihot": {
-          "initialBackfillLimit": 8
+        "url": "https://www.cepds.com/zbbzyj.jhtml",
+        "parseMode": "html",
+        "itemSelector": "div.f-in > div.g-margin > div.m-qa.qa-other > ul > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "b",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://www.cepds.com/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
         }
       },
-      "tier": "T2",
+      "tier": "T1",
       "owner_entity_id": null,
       "participation_mode": "editorial",
-      "interval_minutes": 180,
+      "interval_minutes": 120,
       "tags": [
-        "个人",
-        "周刊"
+        "官方",
+        "国家级"
       ],
       "site_fulltext": false,
       "syndicate_fulltext": false
     },
     {
-      "id": "rss-latent-space",
-      "name": "Latent Space",
-      "kind": "rss",
+      "id": "web-stats-xw-tjxw",
+      "name": "中华人民共和国国家统计局 · 统计新闻",
+      "kind": "web_list",
       "config": {
-        "feedUrl": "https://www.latent.space/feed",
-        "_aihot": {
-          "initialBackfillLimit": 8
+        "url": "https://www.stats.gov.cn/xw/tjxw/",
+        "parseMode": "html",
+        "itemSelector": "div.tjxw_content_one > div.tjxw_content_one_right.ml20 > div.tjxw_content_list > ul > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://www.stats.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
         }
       },
-      "tier": "T2",
+      "tier": "T1",
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [
+        "官方",
+        "国家级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-stats-sj",
+      "name": "中华人民共和国国家统计局 · 数据",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.stats.gov.cn/sj/",
+        "parseMode": "html",
+        "itemSelector": "div.wrapper-publish-content3 > div.wrapper-publish-content1-left > div.wrapper-publish-second-list > ul > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://www.stats.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [
+        "官方",
+        "国家级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-stats-sj-sjjd",
+      "name": "中华人民共和国国家统计局 · 数据解读",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.stats.gov.cn/sj/sjjd/",
+        "parseMode": "html",
+        "itemSelector": "div.wrapper-list > div.wrapper-list-right > div.list-content > ul > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://www.stats.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [
+        "官方",
+        "国家级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-stats-gk",
+      "name": "中华人民共和国国家统计局 · 公开文件",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.stats.gov.cn/gk/",
+        "parseMode": "html",
+        "itemSelector": "div.wrapper-contents-left.clear > div.gtjnw2023_flex_r > div.list-content.mhide > ul > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://www.stats.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [
+        "官方",
+        "国家级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-fgw-beijing-gzdt-tztg",
+      "name": "北京市发展和改革委员会 · 工作动态_通知通告",
+      "kind": "web_list",
+      "config": {
+        "url": "https://fgw.beijing.gov.cn/gzdt/tztg/",
+        "parseMode": "html",
+        "itemSelector": "div.main.boxcenter > div.Right > div.content > ul.list > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://fgw.beijing.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-fgw-beijing-fgwzwgk-2024zcwj",
+      "name": "北京市发展和改革委员会 · 政务公开_政策文件",
+      "kind": "web_list",
+      "config": {
+        "url": "https://fgw.beijing.gov.cn/fgwzwgk/2024zcwj/",
+        "parseMode": "html",
+        "itemSelector": "div.Right > div.bfzc_20220329 > div.bot_listbox_20220329 > ul.list > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://fgw.beijing.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-fgw-beijing-fgwzwgk-2024zcjd",
+      "name": "北京市发展和改革委员会 · 政务公开_政策解读",
+      "kind": "web_list",
+      "config": {
+        "url": "https://fgw.beijing.gov.cn/fgwzwgk/2024zcjd/",
+        "parseMode": "html",
+        "itemSelector": "div.main.boxcenter > div.Right > div.content > ul.list > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://fgw.beijing.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-fzgg-tj-zcwjx-fgwj",
+      "name": "天津市发展和改革委员会 · 政务公开_政策文件",
+      "kind": "web_list",
+      "config": {
+        "url": "https://fzgg.tj.gov.cn/zwgk_47325/zcfg_47338/zcwjx/fgwj/",
+        "parseMode": "html",
+        "itemSelector": "div.containers.main > div.list-box.main-right > div.list-main > ul.list-main-group > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span.list-main-date",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://fzgg.tj.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-fzgg-tj-fdzdgknr1-lzyj",
+      "name": "天津市发展和改革委员会 · 政务公开_行政规范性文件",
+      "kind": "web_list",
+      "config": {
+        "url": "https://fzgg.tj.gov.cn/zwgk_47325/zfxxgk1/fdzdgknr1/lzyj/",
+        "parseMode": "html",
+        "itemSelector": "div.clear > div.xlc-right-content > div.xl-right-content > ul.xl-r2-list > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span.xl-r2li-s3",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://fzgg.tj.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-hbdrc-hebei-jhlm-jhywdt",
+      "name": "河北省发展和改革委员会（河北省能源局） · 新闻动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://hbdrc.hebei.gov.cn/jhlm/jhywdt/",
+        "parseMode": "html",
+        "itemSelector": "body > div.mainboxwhite > div.listerjibox > ul.listerjicon > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span.date",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://hbdrc.hebei.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-hbdrc-hebei-jhlm-jhgzdt",
+      "name": "河北省发展和改革委员会（河北省能源局） · 发改动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://hbdrc.hebei.gov.cn/jhlm/jhgzdt/",
+        "parseMode": "html",
+        "itemSelector": "body > div.mainboxwhite > div.listerjibox > ul.listerjicon > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span.date",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://hbdrc.hebei.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-hbdrc-hebei-jhlm-jhgggs",
+      "name": "河北省发展和改革委员会（河北省能源局） · 公告公示",
+      "kind": "web_list",
+      "config": {
+        "url": "https://hbdrc.hebei.gov.cn/jhlm/jhgggs/",
+        "parseMode": "html",
+        "itemSelector": "body > div.mainboxwhite > div.listerjibox > ul.listerjicon > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span.date",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://hbdrc.hebei.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-hbdrc-hebei-jhlm-jhzcfg",
+      "name": "河北省发展和改革委员会（河北省能源局） · 政策法规",
+      "kind": "web_list",
+      "config": {
+        "url": "https://hbdrc.hebei.gov.cn/jhlm/jhzcfg/",
+        "parseMode": "html",
+        "itemSelector": "tr > td.rgt_tab > div.rgtbar_erji > ul.list_rgterji > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span.date",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://hbdrc.hebei.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-hbdrc-hebei-jggl-1243-jgzcfg",
+      "name": "河北省发展和改革委员会（河北省能源局） · 价格政策法规",
+      "kind": "web_list",
+      "config": {
+        "url": "https://hbdrc.hebei.gov.cn/jggl_1243/jgzcfg/",
+        "parseMode": "html",
+        "itemSelector": "tr > td.rgt_tab > div.rgtbar_erji > ul.list_rgterji > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span.date",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://hbdrc.hebei.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-hbdrc-hebei-jhlm-jhfzgh",
+      "name": "河北省发展和改革委员会（河北省能源局） · 发展规划",
+      "kind": "web_list",
+      "config": {
+        "url": "https://hbdrc.hebei.gov.cn/jhlm/jhfzgh/",
+        "parseMode": "html",
+        "itemSelector": "tr > td.rgt_tab > div.rgtbar_erji > ul.list_rgterji > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span.date",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://hbdrc.hebei.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-hbdrc-hebei-zdxmxxgk-xmss",
+      "name": "河北省发展和改革委员会（河北省能源局） · 重点项目实施",
+      "kind": "web_list",
+      "config": {
+        "url": "https://hbdrc.hebei.gov.cn/ztzl/zdxmxxgk/xmss/",
+        "parseMode": "html",
+        "itemSelector": "tr > td.rgt_tab > div.rgtbar_erji > ul.list_rgterji > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span.date",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://hbdrc.hebei.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-hbdrc-hebei-zdxmxxgk-xmmd",
+      "name": "河北省发展和改革委员会（河北省能源局） · 省重点建设项目名单",
+      "kind": "web_list",
+      "config": {
+        "url": "https://hbdrc.hebei.gov.cn/ztzl/zdxmxxgk/xmmd/",
+        "parseMode": "html",
+        "itemSelector": "tr > td.rgt_tab > div.rgtbar_erji > ul.list_rgterji > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span.date",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://hbdrc.hebei.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-nyj-shanxi-xwzx-sjxw",
+      "name": "山西省能源局 · 新闻中心_省局要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://nyj.shanxi.gov.cn/xwzx/sjxw/",
+        "parseMode": "html",
+        "itemSelector": "div.content > div.nyjzym3.clearfix > div.nyjzym3_right.clearfix > ol > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://nyj.shanxi.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
       "owner_entity_id": null,
       "participation_mode": "editorial",
       "interval_minutes": 180,
       "tags": [
-        "个人"
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-nyj-shanxi-xwzx-xyxw",
+      "name": "山西省能源局 · 新闻中心_行业动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://nyj.shanxi.gov.cn/xwzx/xyxw/",
+        "parseMode": "html",
+        "itemSelector": "div.content > div.nyjzym3.clearfix > div.nyjzym3_right.clearfix > ol > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://nyj.shanxi.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-nyj-shanxi-xwzx-szfyw",
+      "name": "山西省能源局 · 新闻中心_山西要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://nyj.shanxi.gov.cn/xwzx/szfyw/",
+        "parseMode": "html",
+        "itemSelector": "div.content > div.nyjzym3.clearfix > div.nyjzym3_right.clearfix > ol > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://nyj.shanxi.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-nyj-shanxi-zfxxgk-szfwj",
+      "name": "山西省能源局 · 省政府文件",
+      "kind": "web_list",
+      "config": {
+        "url": "https://nyj.shanxi.gov.cn/zfxxgk/szfwj/",
+        "parseMode": "html",
+        "itemSelector": "div.content > div.nyjzym3.clearfix > div.nyjzym3_right.clearfix > ol > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://nyj.shanxi.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-nyj-shanxi-zwgk-230510-xwfbh",
+      "name": "山西省能源局 · 新闻发布会",
+      "kind": "web_list",
+      "config": {
+        "url": "https://nyj.shanxi.gov.cn/zwgk_230510/xwfbh/",
+        "parseMode": "html",
+        "itemSelector": "div.content > div.nyjzym3.clearfix > div.nyjzym3_right.clearfix > ol > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://nyj.shanxi.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-nyj-nmg-ywdt-gzdt1",
+      "name": "内蒙古自治区能源局 · 工作动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://nyj.nmg.gov.cn/ywdt/gzdt1/",
+        "parseMode": "html",
+        "itemSelector": "div.BuCon > div.BuConx > div.BuYuJue > ul > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://nyj.nmg.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-nyj-nmg-tzgg",
+      "name": "内蒙古自治区能源局 · 通知公告",
+      "kind": "web_list",
+      "config": {
+        "url": "https://nyj.nmg.gov.cn/tzgg/",
+        "parseMode": "html",
+        "itemSelector": "div.BuCon > div.BuConx > div.BuYuJue > ul > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://nyj.nmg.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-nyj-nmg-ywdt-nydt1",
+      "name": "内蒙古自治区能源局 · 能源动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://nyj.nmg.gov.cn/ywdt/nydt1/",
+        "parseMode": "html",
+        "itemSelector": "div.BuCon > div.BuConx > div.BuYuJue > ul > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://nyj.nmg.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-nyj-nmg-ywdt-zzqyw",
+      "name": "内蒙古自治区能源局 · 自治区要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://nyj.nmg.gov.cn/ywdt/zzqyw/",
+        "parseMode": "html",
+        "itemSelector": "div.BuCon > div.BuConx > div.BuYuJue > ul > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://nyj.nmg.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-fgw-ln-szyw-index",
+      "name": "辽宁省发展和改革委员会 · 时政要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://fgw.ln.gov.cn/fgw/index/szyw/index.shtml",
+        "parseMode": "html",
+        "itemSelector": "div#98d50c77ee884218b941188f31fdfa45 > div > div.cont_main > ul > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span.datetime",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://fgw.ln.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-fgw-ln-wndt-index",
+      "name": "辽宁省发展和改革委员会 · 委内动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://fgw.ln.gov.cn/fgw/index/wndt/index.shtml",
+        "parseMode": "html",
+        "itemSelector": "div#9ff00499905e4a3e9e81979f1334aa12 > div > div.cont_main > ul > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span.datetime",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://fgw.ln.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-fgw-ln-tzgg-index",
+      "name": "辽宁省发展和改革委员会 · 通知公告",
+      "kind": "web_list",
+      "config": {
+        "url": "https://fgw.ln.gov.cn/fgw/index/tzgg/index.shtml",
+        "parseMode": "html",
+        "itemSelector": "div#97102a86348045ab90c748ec46a7ace4 > div > div.cont_main > ul > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span.datetime",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://fgw.ln.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-fgw-ln-zxzc-index",
+      "name": "辽宁省发展和改革委员会 · 最新政策",
+      "kind": "web_list",
+      "config": {
+        "url": "https://fgw.ln.gov.cn/fgw/zc/zxzc/index.shtml",
+        "parseMode": "html",
+        "itemSelector": "div#be842d3cb4dd472094090cd2a8b00bbe > div > div.cont_main > ul > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span.datetime",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://fgw.ln.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-fgw-ln-zcjd-index",
+      "name": "辽宁省发展和改革委员会 · 政策解读",
+      "kind": "web_list",
+      "config": {
+        "url": "https://fgw.ln.gov.cn/fgw/zc/zcjd/index.shtml",
+        "parseMode": "html",
+        "itemSelector": "div#8375b354427141488f3c0cf613199326 > div > div.cont_main > ul > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span.datetime",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://fgw.ln.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-hlj-c107856-list",
+      "name": "黑龙江省发展和改革委员会 · 要闻动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.hlj.gov.cn/hlj/c107856/list.shtml",
+        "parseMode": "html",
+        "itemSelector": "ul#list > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span.time",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://www.hlj.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-drc-hlj-c111427-common-list",
+      "name": "黑龙江省发展和改革委员会 · 时政要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://drc.hlj.gov.cn/drc/c111427/common_list.shtml",
+        "parseMode": "html",
+        "itemSelector": "ul#list > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span.date",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://drc.hlj.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-drc-hlj-c111428-common-list",
+      "name": "黑龙江省发展和改革委员会 · 发改动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://drc.hlj.gov.cn/drc/c111428/common_list.shtml",
+        "parseMode": "html",
+        "itemSelector": "ul#list > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span.date",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://drc.hlj.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-drc-hlj-c111433-common-list",
+      "name": "黑龙江省发展和改革委员会 · 公示公告",
+      "kind": "web_list",
+      "config": {
+        "url": "https://drc.hlj.gov.cn/drc/c111433/common_list.shtml",
+        "parseMode": "html",
+        "itemSelector": "ul#list > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span.date",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://drc.hlj.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-drc-hlj-c111444-common-zfxxg",
+      "name": "黑龙江省发展和改革委员会 · 行政性规范文件",
+      "kind": "web_list",
+      "config": {
+        "url": "https://drc.hlj.gov.cn/drc/c111444/common_zfxxgk_fgw.shtml?tab=gfxwj",
+        "parseMode": "html",
+        "itemSelector": "div.zfxx-container.clearfix > div.zfxx-right > div.zfxx-content.zfxx-content-gkzd > ul.gkzd-list.nb-list > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span.time",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://drc.hlj.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-drc-hlj-c111446-common-zfxxg",
+      "name": "黑龙江省发展和改革委员会 · 政策解读",
+      "kind": "web_list",
+      "config": {
+        "url": "https://drc.hlj.gov.cn/drc/c111446/common_zfxxgk_fgw.shtml?tab=zcjd",
+        "parseMode": "html",
+        "itemSelector": "div.zfxx-container.clearfix > div.zfxx-right > div.zfxx-content.zfxx-content-gkzd > ul.gkzd-list.nb-list > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span.time",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://drc.hlj.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-drc-hlj-c111444-common-zfxxg-05e9",
+      "name": "黑龙江省发展和改革委员会 · 其他文件",
+      "kind": "web_list",
+      "config": {
+        "url": "https://drc.hlj.gov.cn/drc/c111444/common_zfxxgk_fgw.shtml?tab=gfxwj",
+        "parseMode": "html",
+        "itemSelector": "div.zfxx-container.clearfix > div.zfxx-right > div.zfxx-content.zfxx-content-gkzd > ul.gkzd-list.nb-list > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span.time",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://drc.hlj.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-drc-hlj-c111481-common-zfxxg",
+      "name": "黑龙江省发展和改革委员会 · 行政许可",
+      "kind": "web_list",
+      "config": {
+        "url": "https://drc.hlj.gov.cn/drc/c111481/common_zfxxgk_fgw.shtml",
+        "parseMode": "html",
+        "itemSelector": "div.zfxx-container.clearfix > div.zfxx-right > div.zfxx-content.zfxx-content-gkzd > ul.gkzd-list.nb-list > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span.time",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://drc.hlj.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-fgw-sh-fgw-fzggdt",
+      "name": "上海市发展和改革委员会 · 要闻动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://fgw.sh.gov.cn/fgw_fzggdt/",
+        "parseMode": "html",
+        "itemSelector": "div.container > div.row.trout-region-list > div.col-md-12 > ul.uli14.nowrapli > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span.time",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://fgw.sh.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-fgw-sh-fgw-zxxxgk-index",
+      "name": "上海市发展和改革委员会 · 最新政策",
+      "kind": "web_list",
+      "config": {
+        "url": "https://fgw.sh.gov.cn/fgw_zxxxgk/index.html",
+        "parseMode": "html",
+        "itemSelector": "div.container > div.row.trout-region-list > div.col-md-12 > ul.uli14.nowrapli > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span.time",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://fgw.sh.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-fgw-sh-fgw-zcjd-index",
+      "name": "上海市发展和改革委员会 · 政策解读",
+      "kind": "web_list",
+      "config": {
+        "url": "https://fgw.sh.gov.cn/fgw_zcjd/index.html",
+        "parseMode": "html",
+        "itemSelector": "div.container > div.row.trout-region-list > div.col-md-12 > ul.uli14.nowrapli > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span.time",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://fgw.sh.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-fgw-sh-fgw-gfxwj-index",
+      "name": "上海市发展和改革委员会 · 规范性文件",
+      "kind": "web_list",
+      "config": {
+        "url": "https://fgw.sh.gov.cn/fgw_gfxwj/index.html",
+        "parseMode": "html",
+        "itemSelector": "div.container > div.row.trout-region-list > div.col-md-12 > ul.uli14.nowrapli > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span.time",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://fgw.sh.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-fgw-sh-fgw-gsgg-index",
+      "name": "上海市发展和改革委员会 · 公示公告",
+      "kind": "web_list",
+      "config": {
+        "url": "https://fgw.sh.gov.cn/fgw_gsgg/index.html",
+        "parseMode": "html",
+        "itemSelector": "div.container > div.row.trout-region-list > div.col-md-12 > ul.uli14.nowrapli > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span.time",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://fgw.sh.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-fzggw-ah-fgyw-index",
+      "name": "安徽省发展和改革委员会 · 发改要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://fzggw.ah.gov.cn/ywdt/fgyw/index.html",
+        "parseMode": "html",
+        "itemSelector": "div.ls-row.clearfix > div.ls-module.ls-column-right > div.ls-column-list > ul.doc_list.list-49637151 > li.even",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span.right.date",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://fzggw.ah.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-fzggw-ah-tzgg-index",
+      "name": "安徽省发展和改革委员会 · 通知公告",
+      "kind": "web_list",
+      "config": {
+        "url": "https://fzggw.ah.gov.cn/ywdt/tzgg/index.html",
+        "parseMode": "html",
+        "itemSelector": "div.ls-row.clearfix > div.ls-module.ls-column-right > div.ls-column-list > ul.doc_list.list-49637171 > li.odd",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span.right.date",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://fzggw.ah.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-fzggw-ah-gzdt-index",
+      "name": "安徽省发展和改革委员会 · 工作动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://fzggw.ah.gov.cn/ywdt/gzdt/index.html",
+        "parseMode": "html",
+        "itemSelector": "div.ls-row.clearfix > div.ls-module.ls-column-right > div.ls-column-list > ul.doc_list.list-49637181 > li.even",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span.right.date",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://fzggw.ah.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-fzggw-ah-column-7011",
+      "name": "安徽省发展和改革委员会 · 政策解读咨询",
+      "kind": "web_list",
+      "config": {
+        "url": "https://fzggw.ah.gov.cn/public/column/7011?type=4&catId=49944301&action=list&nav=3",
+        "parseMode": "html",
+        "itemSelector": "div#49943991_gk > li.even.mc",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span.right.date",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://fzggw.ah.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-fzggw-ah-column-7011-e71b",
+      "name": "安徽省发展和改革委员会 · 其他政策文件",
+      "kind": "web_list",
+      "config": {
+        "url": "https://fzggw.ah.gov.cn/public/column/7011?type=4&catId=49943611&action=list&nav=3",
+        "parseMode": "html",
+        "itemSelector": "div#49943991_gk > li.even.mc",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span.right.date",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://fzggw.ah.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-fzggw-ah-column-7011-b7f1",
+      "name": "安徽省发展和改革委员会 · 行政规范性文件",
+      "kind": "web_list",
+      "config": {
+        "url": "https://fzggw.ah.gov.cn/public/column/7011?type=4&catId=49946011&action=list&nav=3",
+        "parseMode": "html",
+        "itemSelector": "div#49943991_gk > li.even.mc",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span.right.date",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://fzggw.ah.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-fzggw-ah-column-7011-a075",
+      "name": "安徽省发展和改革委员会 · 计划报告",
+      "kind": "web_list",
+      "config": {
+        "url": "https://fzggw.ah.gov.cn/public/column/7011?type=4&catId=49948221&action=list&nav=3",
+        "parseMode": "html",
+        "itemSelector": "div#49943991_gk > li.even.mc",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span.right.date",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://fzggw.ah.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-fgw-fujian-fgzd-sfgwgfxwj",
+      "name": "福建省发展和改革委员会 · 省发改委政策文件",
+      "kind": "web_list",
+      "config": {
+        "url": "http://fgw.fujian.gov.cn/zwgk/fgzd/sfgwgfxwj/",
+        "parseMode": "html",
+        "itemSelector": "div.pad_l_base.pad_r_base > div > div.list_base.mar_t_small > ul > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "http://fgw.fujian.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-fgw-fujian-fgzd-szcfg",
+      "name": "福建省发展和改革委员会 · 省政府政策文件",
+      "kind": "web_list",
+      "config": {
+        "url": "http://fgw.fujian.gov.cn/zwgk/fgzd/szcfg/",
+        "parseMode": "html",
+        "itemSelector": "div.pad_l_base.pad_r_base > div > div.list_base.mar_t_small > ul > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "http://fgw.fujian.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-fgw-fujian-zcjd-bmzcwjjd",
+      "name": "福建省发展和改革委员会 · 我委政策文件解读",
+      "kind": "web_list",
+      "config": {
+        "url": "http://fgw.fujian.gov.cn/jdhy/zcjd/bmzcwjjd/",
+        "parseMode": "html",
+        "itemSelector": "div.pad_l_base.pad_r_base > div > div.list_base.mar_t_small > ul > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "http://fgw.fujian.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-fgw-fujian-zcjd-szfzcwjjd",
+      "name": "福建省发展和改革委员会 · 省政府政策文件解读",
+      "kind": "web_list",
+      "config": {
+        "url": "http://fgw.fujian.gov.cn/jdhy/zcjd/szfzcwjjd/",
+        "parseMode": "html",
+        "itemSelector": "div.pad_l_base.pad_r_base > div > div.list_base.mar_t_small > ul > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "http://fgw.fujian.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-fgw-fujian-ghjh-zzqfzgh",
+      "name": "福建省发展和改革委员会 · 专项规划和区域规划",
+      "kind": "web_list",
+      "config": {
+        "url": "http://fgw.fujian.gov.cn/zwgk/ghjh/zzqfzgh/",
+        "parseMode": "html",
+        "itemSelector": "div.pad_l_base.pad_r_base > div > div.list_base.mar_t_small > ul > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "http://fgw.fujian.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-fgw-fujian-xwdt-sxdt",
+      "name": "福建省发展和改革委员会 · 市县要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "http://fgw.fujian.gov.cn/zwgk/xwdt/sxdt/",
+        "parseMode": "html",
+        "itemSelector": "div.pad_l_base.pad_r_base > div > div.list_base.mar_t_small > ul > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "http://fgw.fujian.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-fgw-henan-xwzx-fgyw",
+      "name": "河南省发展和改革委员会 · 发改要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://fgw.henan.gov.cn/xwzx/fgyw/",
+        "parseMode": "html",
+        "itemSelector": "div.news-center.mt-20 > div.fr > div.news-list > ul > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://fgw.henan.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-fgw-henan-gzdt-sld",
+      "name": "河南省发展和改革委员会 · 发改动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://fgw.henan.gov.cn/xwzx/gzdt/sld/",
+        "parseMode": "html",
+        "itemSelector": "div.news-center.mt-20 > div.fr > div.news-list > ul > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://fgw.henan.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-fgw-henan-xwzx-tzgg",
+      "name": "河南省发展和改革委员会 · 通知公告",
+      "kind": "web_list",
+      "config": {
+        "url": "https://fgw.henan.gov.cn/xwzx/tzgg/",
+        "parseMode": "html",
+        "itemSelector": "div.news-center.mt-20 > div.fr > div.news-list > ul > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://fgw.henan.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-fgw-henan-zc-xzgfxwj",
+      "name": "河南省发展和改革委员会 · 行政规范性文件",
+      "kind": "web_list",
+      "config": {
+        "url": "https://fgw.henan.gov.cn/zwgk/zc/xzgfxwj/",
+        "parseMode": "html",
+        "itemSelector": "div.zwxxgk_box > div.scroll_main1 > div.zfxxgk_zdgkc > ul > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "b",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://fgw.henan.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-fgw-henan-ztjc-zcjd",
+      "name": "河南省发展和改革委员会 · 政策解读",
+      "kind": "web_list",
+      "config": {
+        "url": "https://fgw.henan.gov.cn/ztjc/zcjd/",
+        "parseMode": "html",
+        "itemSelector": "div.zwxxgk_box > div.scroll_main1 > div.zfxxgk_zdgkc > ul > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "b",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://fgw.henan.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-drc-gd-gzyw5618-index",
+      "name": "广东省能源局 · 工作动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://drc.gd.gov.cn/gzyw5618/index.html",
+        "parseMode": "html",
+        "itemSelector": "div.wrapper > div.clearfix.mt20 > div.gl-cont2.f-r > ul.comlist1.mt10 > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://drc.gd.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-drc-gd-ywgg-index",
+      "name": "广东省能源局 · 公告公示",
+      "kind": "web_list",
+      "config": {
+        "url": "https://drc.gd.gov.cn/ywgg/index.html",
+        "parseMode": "html",
+        "itemSelector": "div.wrapper > div.clearfix.mt20 > div.gl-cont2.f-r > ul.comlist1.mt10 > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://drc.gd.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-drc-gd-ywtz-index",
+      "name": "广东省能源局 · 业务通知",
+      "kind": "web_list",
+      "config": {
+        "url": "https://drc.gd.gov.cn/ywtz/index.html",
+        "parseMode": "html",
+        "itemSelector": "div.wrapper > div.clearfix.mt20 > div.gl-cont2.f-r > ul.comlist1.mt10 > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://drc.gd.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-drc-gd-xmgg-index",
+      "name": "广东省能源局 · 项目公告",
+      "kind": "web_list",
+      "config": {
+        "url": "https://drc.gd.gov.cn/xmgg/index.html",
+        "parseMode": "html",
+        "itemSelector": "div.wrapper > div.clearfix.mt20 > div.gl-cont2.f-r > ul.comlist1.mt10 > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://drc.gd.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-drc-gd-ywgs-index",
+      "name": "广东省能源局 · 业务公示",
+      "kind": "web_list",
+      "config": {
+        "url": "https://drc.gd.gov.cn/ywgs/index.html",
+        "parseMode": "html",
+        "itemSelector": "div.wrapper > div.clearfix.mt20 > div.gl-cont2.f-r > ul.comlist1.mt10 > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://drc.gd.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-drc-gd-xmgs-index",
+      "name": "广东省能源局 · 项目公示",
+      "kind": "web_list",
+      "config": {
+        "url": "https://drc.gd.gov.cn/xmgs/index.html",
+        "parseMode": "html",
+        "itemSelector": "div.wrapper > div.clearfix.mt20 > div.gl-cont2.f-r > ul.comlist1.mt10 > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://drc.gd.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-drc-gd-gfxwj5633-index",
+      "name": "广东省能源局 · 规范性文件",
+      "kind": "web_list",
+      "config": {
+        "url": "https://drc.gd.gov.cn/gfxwj5633/index.html",
+        "parseMode": "html",
+        "itemSelector": "div.wrapper > div.clearfix.mt20 > div.gl-cont2.f-r > ul.comlist1.mt10 > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://drc.gd.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-drc-gd-qtwj-index",
+      "name": "广东省能源局 · 其他文件",
+      "kind": "web_list",
+      "config": {
+        "url": "https://drc.gd.gov.cn/qtwj/index.html",
+        "parseMode": "html",
+        "itemSelector": "div.wrapper > div.clearfix.mt20 > div.gl-cont2.f-r > ul.comlist1.mt10 > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://drc.gd.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-drc-gd-zcjd5635-index",
+      "name": "广东省能源局 · 政策解读",
+      "kind": "web_list",
+      "config": {
+        "url": "https://drc.gd.gov.cn/zcjd5635/index.html",
+        "parseMode": "html",
+        "itemSelector": "div.wrapper > div.clearfix.mt20 > div.gl-cont2.f-r > ul.comlist1.mt10 > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://drc.gd.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-drc-gd-szyw-index",
+      "name": "广东省能源局 · 时政要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://drc.gd.gov.cn/ztzl5663/szyw/index.html",
+        "parseMode": "html",
+        "itemSelector": "div.wrapper > div.clearfix.mt20 > div.gl-cont2.f-r > ul.comlist1.mt10 > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://drc.gd.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-drc-gd-fzgh5637-index",
+      "name": "广东省能源局 · 发展规划",
+      "kind": "web_list",
+      "config": {
+        "url": "https://drc.gd.gov.cn/fzgh5637/index.html",
+        "parseMode": "html",
+        "itemSelector": "div.wrapper > div.clearfix.mt20 > div.gl-cont2.f-r > ul.comlist1.mt10 > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://drc.gd.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-plan-hainan-gzdt-list3",
+      "name": "海南省发展和改革委员会 · 工作动态",
+      "kind": "web_list",
+      "config": {
+        "url": "http://plan.hainan.gov.cn/sfgw/gzdt/list3.shtml",
+        "parseMode": "html",
+        "itemSelector": "div.cen-div-1.mar-t > div.con-right.fr > div.Fivelist > ul > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "em",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "http://plan.hainan.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-plan-hainan-fzgh-list3",
+      "name": "海南省发展和改革委员会 · 发展改革专栏_发展规划",
+      "kind": "web_list",
+      "config": {
+        "url": "https://plan.hainan.gov.cn/sfgw/fzgh/list3.shtml?ddtab=true",
+        "parseMode": "html",
+        "itemSelector": "div.cen-div-1.mar-t > div.con-right.fr > div.Fivelist > ul > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "em",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://plan.hainan.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-plan-hainan-jtny-list3",
+      "name": "海南省发展和改革委员会 · 发展改革专栏_交通能源",
+      "kind": "web_list",
+      "config": {
+        "url": "https://plan.hainan.gov.cn/sfgw/jtny/list3.shtml",
+        "parseMode": "html",
+        "itemSelector": "div.cen-div-1.mar-t > div.con-right.fr > div.Fivelist > ul > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "em",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://plan.hainan.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-fzggw-cq-zwxx-bmdt",
+      "name": "重庆市发改委 · 部门动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://fzggw.cq.gov.cn/zwxx/bmdt/",
+        "parseMode": "html",
+        "itemSelector": "div.gl-c.gkm-c > div.gkm-cr.glw-c > div.gkm-crbox > ul.xhy-c1item.underlines > li.clearfix",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span.rt",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://fzggw.cq.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-fzggw-cq-zcwj-qtwj",
+      "name": "重庆市发改委 · 其他文件",
+      "kind": "web_list",
+      "config": {
+        "url": "https://fzggw.cq.gov.cn/zwgk/zfxxgkml/zcwj/qtwj/",
+        "parseMode": "html",
+        "itemSelector": "div.gl-c.gkm-c > div.gkm-cr.glw-c > div.gkm-crbox > ul.xhy-c1item.underlines > li.clearfix",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span.rt",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://fzggw.cq.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-fzggw-cq-zcwj-xzgfxwj",
+      "name": "重庆市发改委 · 行政规范性文件",
+      "kind": "web_list",
+      "config": {
+        "url": "https://fzggw.cq.gov.cn/zwgk/zfxxgkml/zcwj/xzgfxwj/",
+        "parseMode": "html",
+        "itemSelector": "div.gl-c.gkm-c > div.gkm-cr.glw-c > div.gkm-crbox > ul.xhy-c1item.underlines > li.clearfix",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span.rt",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://fzggw.cq.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-fzggw-cq-zwxx-tzgg",
+      "name": "重庆市发改委 · 通知公告",
+      "kind": "web_list",
+      "config": {
+        "url": "https://fzggw.cq.gov.cn/zwxx/tzgg/",
+        "parseMode": "html",
+        "itemSelector": "div#guidang > div.gkm-crbox > ul.xhy-c1item.underlines > li.clearfix",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span.rt",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://fzggw.cq.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-fzggw-cq-zfxxgkml-sphzbaxx",
+      "name": "重庆市发改委 · 审核批准备案",
+      "kind": "web_list",
+      "config": {
+        "url": "https://fzggw.cq.gov.cn/zwgk/zfxxgkml/sphzbaxx/",
+        "parseMode": "html",
+        "itemSelector": "div.gl-c.gkm-c > div.gkm-cr.rt > div.gkm-crbox > ul.xhy-c1item.underlines > li.clearfix",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span.rt",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://fzggw.cq.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-fzggw-cq-zfxxgkml-zcjd",
+      "name": "重庆市发改委 · 政策解读",
+      "kind": "web_list",
+      "config": {
+        "url": "https://fzggw.cq.gov.cn/zwgk/zfxxgkml/zcjd/",
+        "parseMode": "html",
+        "itemSelector": "div.gl-c.gkm-c > div.gkm-cr.rt > div.gkm-crbox > ul.xhy-c1item.underlines > li.clearfix",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span.rt",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://fzggw.cq.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-fzggw-cq-jgxx-jgzc",
+      "name": "重庆市发改委 · 价格政策",
+      "kind": "web_list",
+      "config": {
+        "url": "https://fzggw.cq.gov.cn/zwgk/zfxxgkml/jgxx/jgzc/",
+        "parseMode": "html",
+        "itemSelector": "div.gl-c.gkm-c > div.gkm-cr.rt > div.gkm-crbox > ul.xhy-c1item.underlines > li.clearfix",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span.rt",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://fzggw.cq.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-fgw-sc-fgyw-common-list",
+      "name": "四川省发改委 · 发改动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://fgw.sc.gov.cn/sfgw/fgyw/common_list.shtml",
+        "parseMode": "html",
+        "itemSelector": "div#list-data > ul.list > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://fgw.sc.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-fgw-sc-tzgg-olist",
+      "name": "四川省发改委 · 通知公告",
+      "kind": "web_list",
+      "config": {
+        "url": "https://fgw.sc.gov.cn/sfgw/tzgg/olist.shtml",
+        "parseMode": "html",
+        "itemSelector": "div#list-data > ul.list > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://fgw.sc.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-fgw-sc-zcwj-olist",
+      "name": "四川省发改委 · 政策文件",
+      "kind": "web_list",
+      "config": {
+        "url": "https://fgw.sc.gov.cn/sfgw/zcwj/olist.shtml",
+        "parseMode": "html",
+        "itemSelector": "div#list-data > ul.list > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://fgw.sc.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-fgw-sc-zcjd-olist",
+      "name": "四川省发改委 · 政策解读",
+      "kind": "web_list",
+      "config": {
+        "url": "https://fgw.sc.gov.cn/sfgw/zcjd/olist.shtml",
+        "parseMode": "html",
+        "itemSelector": "div#list-data > ul.list > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://fgw.sc.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-nyj-guizhou-xwzx-gzdt",
+      "name": "贵州省能源局 · 要闻动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://nyj.guizhou.gov.cn/xwzx/gzdt/",
+        "parseMode": "html",
+        "itemSelector": "div.right_list.f_r > dl > dd > ul > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "i",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://nyj.guizhou.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-nyj-guizhou-xwzx-xydt",
+      "name": "贵州省能源局 · 行业动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://nyj.guizhou.gov.cn/xwzx/xydt/",
+        "parseMode": "html",
+        "itemSelector": "div.right_list.f_r > dl > dd > ul > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "i",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://nyj.guizhou.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-nyj-guizhou-xwzx-gsgg",
+      "name": "贵州省能源局 · 公示公告",
+      "kind": "web_list",
+      "config": {
+        "url": "https://nyj.guizhou.gov.cn/xwzx/gsgg/",
+        "parseMode": "html",
+        "itemSelector": "div.right_list.f_r > dl > dd > ul > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "i",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://nyj.guizhou.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-yndrc-yn-html-xinwendongtai",
+      "name": "云南省发展和改革委员会 · 新闻动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://yndrc.yn.gov.cn/html/xinwendongtai/",
+        "parseMode": "html",
+        "itemSelector": "div.list-wrapper > div.xwdt-wrapper.clearfix > div.xwdt-content > ul > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://yndrc.yn.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-sndrc-shaanxi-xwxx-fgyw",
+      "name": "陕西省发改委 · 发改要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://sndrc.shaanxi.gov.cn/sy/xwxx/fgyw/",
+        "parseMode": "html",
+        "itemSelector": "div.main > div.w1200 > div.fRight.w870 > ul.rightList > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://sndrc.shaanxi.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-sndrc-shaanxi-xwxx-gggg",
+      "name": "陕西省发改委 · 公示公告",
+      "kind": "web_list",
+      "config": {
+        "url": "https://sndrc.shaanxi.gov.cn/sy/xwxx/gggg/",
+        "parseMode": "html",
+        "itemSelector": "div.main > div.w1200 > div.fRight.w870 > ul.rightList > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://sndrc.shaanxi.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-sndrc-shaanxi-xwxx-sqfgdt",
+      "name": "陕西省发改委 · 市县动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://sndrc.shaanxi.gov.cn/sy/xwxx/sqfgdt/",
+        "parseMode": "html",
+        "itemSelector": "div.main > div.w1200 > div.fRight.w870 > ul.rightList > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://sndrc.shaanxi.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-sndrc-shaanxi-zc-zcjd",
+      "name": "陕西省发改委 · 政策解读",
+      "kind": "web_list",
+      "config": {
+        "url": "https://sndrc.shaanxi.gov.cn/zfxxgk/zc/zcjd/",
+        "parseMode": "html",
+        "itemSelector": "div#heightbox > li.xxgk-comm-line.clearfix",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span.xxgk-line-comdate.fr",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://sndrc.shaanxi.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-sndrc-shaanxi-fgwj-xzgfxwj",
+      "name": "陕西省发改委 · 行政规范性文件",
+      "kind": "web_list",
+      "config": {
+        "url": "https://sndrc.shaanxi.gov.cn/zfxxgk/zc/fgwj/xzgfxwj/",
+        "parseMode": "html",
+        "itemSelector": "div#heightbox > li.xxgk-comm-line.clearfix",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span.xxgk-line-comdate.fr",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://sndrc.shaanxi.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-sndrc-shaanxi-news-gzdt",
+      "name": "陕西省能源局 · 工作动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://sndrc.shaanxi.gov.cn/zjww/wsdw/sxsnyj/news/gzdt/",
+        "parseMode": "html",
+        "itemSelector": "div.container > div.am-g > div.am-u-lg-9.am-u-sm-12 > ul.cm-news-list.gl-news-list > li.clearfix",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span.wapHide",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://sndrc.shaanxi.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-sndrc-shaanxi-news-zctz",
+      "name": "陕西省能源局 · 政策通知",
+      "kind": "web_list",
+      "config": {
+        "url": "https://sndrc.shaanxi.gov.cn/zjww/wsdw/sxsnyj/news/zctz/",
+        "parseMode": "html",
+        "itemSelector": "div.container > div.am-g > div.am-u-lg-9.am-u-sm-12 > ul.cm-news-list.gl-news-list > li.clearfix",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span.wapHide",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://sndrc.shaanxi.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-sndrc-shaanxi-news-gsgg",
+      "name": "陕西省能源局 · 公示公告",
+      "kind": "web_list",
+      "config": {
+        "url": "https://sndrc.shaanxi.gov.cn/zjww/wsdw/sxsnyj/news/gsgg/",
+        "parseMode": "html",
+        "itemSelector": "div.container > div.am-g > div.am-u-lg-9.am-u-sm-12 > ul.cm-news-list.gl-news-list > li.clearfix",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span.wapHide",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://sndrc.shaanxi.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-sndrc-shaanxi-news-xmsp",
+      "name": "陕西省能源局 · 项目审批",
+      "kind": "web_list",
+      "config": {
+        "url": "https://sndrc.shaanxi.gov.cn/zjww/wsdw/sxsnyj/news/xmsp/",
+        "parseMode": "html",
+        "itemSelector": "div.container > div.am-g > div.am-u-lg-9.am-u-sm-12 > ul.cm-news-list.gl-news-list > li.clearfix",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span.wapHide",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://sndrc.shaanxi.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-fgw-qinghai-xwzx-tzgg",
+      "name": "青海省发展和改革委员会 · 通知公告",
+      "kind": "web_list",
+      "config": {
+        "url": "http://fgw.qinghai.gov.cn/xwzx/tzgg/",
+        "parseMode": "html",
+        "itemSelector": "div.centerWidth.listcontent > div.listcontent_div.clearfix > div.clearfix.lf > ul.clearfix.con-item > li.clearfix",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "http://fgw.qinghai.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-fgw-qinghai-qhsnyj-gzxx",
+      "name": "青海省发展和改革委员会 · 行业动态",
+      "kind": "web_list",
+      "config": {
+        "url": "http://fgw.qinghai.gov.cn/zfxxgk/jjzn/bmgljg/qhsnyj/gzxx/",
+        "parseMode": "html",
+        "itemSelector": "div.centerWidth.listcontent > div.listcontent_div.clearfix > div.clearfix.lf > ul.clearfix.con-item > li.clearfix",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "http://fgw.qinghai.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-fgw-qinghai-qhsnyj-zcfg",
+      "name": "青海省发展和改革委员会 · 政策法规",
+      "kind": "web_list",
+      "config": {
+        "url": "http://fgw.qinghai.gov.cn/zfxxgk/jjzn/bmgljg/qhsnyj/zcfg/",
+        "parseMode": "html",
+        "itemSelector": "div.centerWidth.listcontent > div.listcontent_div.clearfix > div.clearfix.lf > ul.clearfix.con-item > li.clearfix",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "http://fgw.qinghai.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-fgw-qinghai-zcjd-290-wzjd",
+      "name": "青海省发展和改革委员会 · 文字解读",
+      "kind": "web_list",
+      "config": {
+        "url": "http://fgw.qinghai.gov.cn/zfxxgk/zcjd_290/wzjd/",
+        "parseMode": "html",
+        "itemSelector": "div.zwxxgk_box > div.scroll_main1 > div.zfxxgk_zdgkc > ul > li.clearfix",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "b",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "http://fgw.qinghai.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-fgw-qinghai-ghjh-cygh",
+      "name": "青海省发展和改革委员会 · 中长期规划",
+      "kind": "web_list",
+      "config": {
+        "url": "http://fgw.qinghai.gov.cn/zfxxgk/sdzdgknr/ghjh/cygh/",
+        "parseMode": "html",
+        "itemSelector": "div.zwxxgk_box > div.scroll_main1 > div.zfxxgk_zdgkc > ul > li.clearfix",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "b",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "http://fgw.qinghai.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-fgw-qinghai-32-index",
+      "name": "青海省发展和改革委员会 · 行政规范性文件",
+      "kind": "web_list",
+      "config": {
+        "url": "http://fgw.qinghai.gov.cn/22/32/index.html",
+        "parseMode": "html",
+        "itemSelector": "div.scroll_main1 > div.wjjsnr.fgw-file-cont > div.fgw-file-box > ul.zw-list.zw-list2 > li.clearfix",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span.d",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "http://fgw.qinghai.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-fgw-qinghai-sdzdgknr-fgwwj",
+      "name": "青海省发展和改革委员会 · 发改委文件",
+      "kind": "web_list",
+      "config": {
+        "url": "http://fgw.qinghai.gov.cn/zfxxgk/sdzdgknr/fgwwj/",
+        "parseMode": "html",
+        "itemSelector": "div.scroll_main1 > div.wjjsnr.fgw-file-cont > div.fgw-file-box > ul.zw-list.zw-list2 > li.clearfix",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span.d",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "http://fgw.qinghai.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-fzggw-nx-zwdt",
+      "name": "宁夏回族自治区发展和改革委员会 · 工作动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://fzggw.nx.gov.cn/zwdt/",
+        "parseMode": "html",
+        "itemSelector": "body > div.container > div.gailan > ul.newslist > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span.time",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://fzggw.nx.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-fzggw-nx-tzgg",
+      "name": "宁夏回族自治区发展和改革委员会 · 通知公告",
+      "kind": "web_list",
+      "config": {
+        "url": "https://fzggw.nx.gov.cn/tzgg/",
+        "parseMode": "html",
+        "itemSelector": "body > div.container > div.gailan > ul.newslist > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span.time",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://fzggw.nx.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-fzggw-nx-zcgh-fgwwj",
+      "name": "宁夏回族自治区发展和改革委员会 · 自治区发改委文件",
+      "kind": "web_list",
+      "config": {
+        "url": "https://fzggw.nx.gov.cn/zcgh/fgwwj/",
+        "parseMode": "html",
+        "itemSelector": "div.zcwjbox > div.table-wrap > table > tbody > tr.xxgk_nav_con",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "td.fbrq",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://fzggw.nx.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-fzggw-nx-zcgh-gfxwj1",
+      "name": "宁夏回族自治区发展和改革委员会 · 规范性文件",
+      "kind": "web_list",
+      "config": {
+        "url": "https://fzggw.nx.gov.cn/zcgh/gfxwj1/",
+        "parseMode": "html",
+        "itemSelector": "div.zcwjbox > div.table-wrap > table > tbody > tr.xxgk_nav_con",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "td.fbrq",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://fzggw.nx.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-fzggw-nx-zcgh-zcjd",
+      "name": "宁夏回族自治区发展和改革委员会 · 政策解读",
+      "kind": "web_list",
+      "config": {
+        "url": "https://fzggw.nx.gov.cn/zcgh/zcjd/",
+        "parseMode": "html",
+        "itemSelector": "div.xxgk-container.xxgk-container-bg > div.xxgk-mainBox.clearfix > div.xxgk-mainContent > ul.pageList.newsList > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span.time",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://fzggw.nx.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-xjdrc-xinjiang-c108361-zfxxgk-gknrz",
+      "name": "新疆维吾尔自治区发展和改革委员会（能源局） · 行政规范性文件",
+      "kind": "web_list",
+      "config": {
+        "url": "https://xjdrc.xinjiang.gov.cn/xjfgw/c108361/zfxxgk_gknrz.shtml",
+        "parseMode": "html",
+        "itemSelector": "div#wzlm > dl > dd",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://xjdrc.xinjiang.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-xjdrc-xinjiang-c108363-zfxxgk-gknrz",
+      "name": "新疆维吾尔自治区发展和改革委员会（能源局） · 解读信息",
+      "kind": "web_list",
+      "config": {
+        "url": "https://xjdrc.xinjiang.gov.cn/xjfgw/c108363/zfxxgk_gknrz.shtml",
+        "parseMode": "html",
+        "itemSelector": "div#wzlm > dl > dd",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://xjdrc.xinjiang.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-xjdrc-xinjiang-c108365-zfxxgk-gknrz",
+      "name": "新疆维吾尔自治区发展和改革委员会（能源局） · 规划计划",
+      "kind": "web_list",
+      "config": {
+        "url": "https://xjdrc.xinjiang.gov.cn/xjfgw/c108365/zfxxgk_gknrz.shtml",
+        "parseMode": "html",
+        "itemSelector": "div#wzlm > dl > dd",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://xjdrc.xinjiang.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-xjdrc-xinjiang-c108385-common-list",
+      "name": "新疆维吾尔自治区发展和改革委员会（能源局） · 能源政策",
+      "kind": "web_list",
+      "config": {
+        "url": "https://xjdrc.xinjiang.gov.cn/xjfgw/c108385/common_list.shtml",
+        "parseMode": "html",
+        "itemSelector": "div#list-data > ul.list > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://xjdrc.xinjiang.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-xjdrc-xinjiang-c108299-common-list",
+      "name": "新疆维吾尔自治区发展和改革委员会（能源局） · 公示公告",
+      "kind": "web_list",
+      "config": {
+        "url": "https://xjdrc.xinjiang.gov.cn/xjfgw/c108299/common_list.shtml",
+        "parseMode": "html",
+        "itemSelector": "div#list-data > ul.list > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://xjdrc.xinjiang.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-shanxi-ywdt-sxyw",
+      "name": "山西省人民政府 · 山西要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.shanxi.gov.cn/ywdt/sxyw/",
+        "parseMode": "html",
+        "itemSelector": "div.container.boxcenter > dl.sxszf-mlists-items.sxszf-slists-items > dd > ul.common-textnews-list.sxszf-mlists-item > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://www.shanxi.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-shanxi-zcjd-wzjd",
+      "name": "山西省人民政府 · 文字解读",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.shanxi.gov.cn/ywdt/zcjd/wzjd/",
+        "parseMode": "html",
+        "itemSelector": "div.container.boxcenter > dl.sxszf-mlists-items.sxszf-slists-items > dd > ul.common-textnews-list.sxszf-mlists-item > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://www.shanxi.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-shanxi-zcjd-tpjd",
+      "name": "山西省人民政府 · 图片解读",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.shanxi.gov.cn/ywdt/zcjd/tpjd/",
+        "parseMode": "html",
+        "itemSelector": "div.container.boxcenter > dl.sxszf-mlists-items.sxszf-slists-items > dd > ul.common-textnews-list.sxszf-mlists-item > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://www.shanxi.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-nea-policy-fa9dea7db62643b38",
+      "name": "国家能源局 · 通知",
+      "kind": "json_list",
+      "config": {
+        "url": "https://www.nea.gov.cn/policy/ds_fa9dea7db62643b385c9dfc13f1a9285.json",
+        "itemsPath": "datasource",
+        "titlePaths": [
+          "showTitle",
+          "title"
+        ],
+        "urlTemplate": "{raw:publishUrl}",
+        "publishedAtPath": "publishTime",
+        "publishedAtUtcOffset": "+08:00",
+        "summaryPaths": [
+          "summary"
+        ],
+        "allowUrlPrefixes": [
+          "https://www.nea.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "nea",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "国家级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "_from": "xlsx:nea-json"
+    },
+    {
+      "id": "web-nea-policy-e5cd0ac514b8416db",
+      "name": "国家能源局 · 公告",
+      "kind": "json_list",
+      "config": {
+        "url": "https://www.nea.gov.cn/policy/ds_e5cd0ac514b8416db9d472a1d5f8989c.json",
+        "itemsPath": "datasource",
+        "titlePaths": [
+          "showTitle",
+          "title"
+        ],
+        "urlTemplate": "{raw:publishUrl}",
+        "publishedAtPath": "publishTime",
+        "publishedAtUtcOffset": "+08:00",
+        "summaryPaths": [
+          "summary"
+        ],
+        "allowUrlPrefixes": [
+          "https://www.nea.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "nea",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "国家级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "_from": "xlsx:nea-json"
+    },
+    {
+      "id": "web-nea-politics-cb12d20d906b482",
+      "name": "国家能源局 · 时政要闻",
+      "kind": "json_list",
+      "config": {
+        "url": "https://www.nea.gov.cn/politics/ds_cb12d20d906b4821b890e07a28dc9cee.json",
+        "itemsPath": "datasource",
+        "titlePaths": [
+          "showTitle",
+          "title"
+        ],
+        "urlTemplate": "{raw:publishUrl}",
+        "publishedAtPath": "publishTime",
+        "publishedAtUtcOffset": "+08:00",
+        "summaryPaths": [
+          "summary"
+        ],
+        "allowUrlPrefixes": [
+          "https://www.nea.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "nea",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "国家级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "_from": "xlsx:nea-json"
+    },
+    {
+      "id": "web-nea-news-2c660678c87340cfbed",
+      "name": "国家能源局 · 局工作动态",
+      "kind": "json_list",
+      "config": {
+        "url": "https://www.nea.gov.cn/news/ds_2c660678c87340cfbedb8851441a85bc.json",
+        "itemsPath": "datasource",
+        "titlePaths": [
+          "showTitle",
+          "title"
+        ],
+        "urlTemplate": "{raw:publishUrl}",
+        "publishedAtPath": "publishTime",
+        "publishedAtUtcOffset": "+08:00",
+        "summaryPaths": [
+          "summary"
+        ],
+        "allowUrlPrefixes": [
+          "https://www.nea.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "nea",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "国家级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "_from": "xlsx:nea-json"
+    },
+    {
+      "id": "web-nea-xwzx-8f41612499e841a1ad8",
+      "name": "国家能源局 · 能源要闻",
+      "kind": "json_list",
+      "config": {
+        "url": "https://www.nea.gov.cn/xwzx/ds_8f41612499e841a1ad842dbe19f9149f.json",
+        "itemsPath": "datasource",
+        "titlePaths": [
+          "showTitle",
+          "title"
+        ],
+        "urlTemplate": "{raw:publishUrl}",
+        "publishedAtPath": "publishTime",
+        "publishedAtUtcOffset": "+08:00",
+        "summaryPaths": [
+          "summary"
+        ],
+        "allowUrlPrefixes": [
+          "https://www.nea.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "nea",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "国家级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "_from": "xlsx:nea-json"
+    },
+    {
+      "id": "web-hbj-nea-dtyw-jgdt",
+      "name": "国家能源局华北监管局 · 监管动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://hbj.nea.gov.cn/dtyw/jgdt/",
+        "itemSelector": "div.wrapper_overview_right_list > ul > li",
+        "titleSelector": "span:first-child",
+        "publishedAtSelector": "span:nth-child(2)",
+        "parseMode": "html",
+        "linkSelector": "a",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://hbj.nea.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "nea",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "区域级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "_from": "xlsx:bureau"
+    },
+    {
+      "id": "web-hbj-nea-dtyw-tzgg",
+      "name": "国家能源局华北监管局 · 通知公告",
+      "kind": "web_list",
+      "config": {
+        "url": "https://hbj.nea.gov.cn/dtyw/tzgg/",
+        "itemSelector": "div.wrapper_overview_right_list > ul > li",
+        "titleSelector": "span:first-child",
+        "publishedAtSelector": "span:nth-child(2)",
+        "parseMode": "html",
+        "linkSelector": "a",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://hbj.nea.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "nea",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "区域级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "_from": "xlsx:bureau"
+    },
+    {
+      "id": "web-dbj-nea-dtyw-jgdt",
+      "name": "国家能源局东北监管局 · 监管动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://dbj.nea.gov.cn/dtyw/jgdt/",
+        "itemSelector": "div.wrapper_overview_right_list > ul > li",
+        "titleSelector": "span:first-child",
+        "publishedAtSelector": "span:nth-child(2)",
+        "parseMode": "html",
+        "linkSelector": "a",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://dbj.nea.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "nea",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "区域级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "_from": "xlsx:bureau"
+    },
+    {
+      "id": "web-dbj-nea-dtyw-tzgg",
+      "name": "国家能源局东北监管局 · 通知公告",
+      "kind": "web_list",
+      "config": {
+        "url": "https://dbj.nea.gov.cn/dtyw/tzgg/",
+        "itemSelector": "div.wrapper_overview_right_list > ul > li",
+        "titleSelector": "span:first-child",
+        "publishedAtSelector": "span:nth-child(2)",
+        "parseMode": "html",
+        "linkSelector": "a",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://dbj.nea.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "nea",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "区域级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "_from": "xlsx:bureau"
+    },
+    {
+      "id": "web-dbj-nea-xxgk-zcfg",
+      "name": "国家能源局东北监管局 · 政策公开",
+      "kind": "web_list",
+      "config": {
+        "url": "https://dbj.nea.gov.cn/xxgk/zcfg/",
+        "itemSelector": "ul > li",
+        "titleSelector": "span:first-child",
+        "publishedAtSelector": "span:nth-child(2)",
+        "parseMode": "html",
+        "linkSelector": "a",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://dbj.nea.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "nea",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "区域级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "_from": "xlsx:bureau"
+    },
+    {
+      "id": "web-dbj-nea-xxgk-zcjd",
+      "name": "国家能源局东北监管局 · 政策解读",
+      "kind": "web_list",
+      "config": {
+        "url": "https://dbj.nea.gov.cn/xxgk/zcjd/",
+        "itemSelector": "ul > li",
+        "titleSelector": "span:first-child",
+        "publishedAtSelector": "span:nth-child(2)",
+        "parseMode": "html",
+        "linkSelector": "a",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://dbj.nea.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "nea",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "区域级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "_from": "xlsx:bureau"
+    },
+    {
+      "id": "web-xbj-nea-dtyw-jgdt",
+      "name": "国家能源局西北监管局 · 监管动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://xbj.nea.gov.cn/dtyw/jgdt/",
+        "itemSelector": "div.wrapper_overview_right_list > ul > li",
+        "titleSelector": "span:first-child",
+        "publishedAtSelector": "span:nth-child(2)",
+        "parseMode": "html",
+        "linkSelector": "a",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://xbj.nea.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "nea",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "区域级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "_from": "xlsx:bureau"
+    },
+    {
+      "id": "web-xbj-nea-dtyw-tzgg",
+      "name": "国家能源局西北监管局 · 通知公告",
+      "kind": "web_list",
+      "config": {
+        "url": "https://xbj.nea.gov.cn/dtyw/tzgg/",
+        "itemSelector": "div.wrapper_overview_right_list > ul > li",
+        "titleSelector": "span:first-child",
+        "publishedAtSelector": "span:nth-child(2)",
+        "parseMode": "html",
+        "linkSelector": "a",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://xbj.nea.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "nea",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "区域级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "_from": "xlsx:bureau"
+    },
+    {
+      "id": "web-hdj-nea-dtyw-jgdt",
+      "name": "国家能源局华东监管局 · 监管动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://hdj.nea.gov.cn/dtyw/jgdt/",
+        "itemSelector": "div.wrapper_overview_right_list > ul > li",
+        "titleSelector": "span:first-child",
+        "publishedAtSelector": "span:nth-child(2)",
+        "parseMode": "html",
+        "linkSelector": "a",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://hdj.nea.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "nea",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "区域级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "_from": "xlsx:bureau"
+    },
+    {
+      "id": "web-hdj-nea-dtyw-tzgg",
+      "name": "国家能源局华东监管局 · 通知公告",
+      "kind": "web_list",
+      "config": {
+        "url": "https://hdj.nea.gov.cn/dtyw/tzgg/",
+        "itemSelector": "div.wrapper_overview_right_list > ul > li",
+        "titleSelector": "span:first-child",
+        "publishedAtSelector": "span:nth-child(2)",
+        "parseMode": "html",
+        "linkSelector": "a",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://hdj.nea.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "nea",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "区域级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "_from": "xlsx:bureau"
+    },
+    {
+      "id": "web-hzj-nea-dtyw-xzxk",
+      "name": "国家能源局华中监管局 · 行政许可",
+      "kind": "web_list",
+      "config": {
+        "url": "https://hzj.nea.gov.cn/dtyw/xzxk/",
+        "itemSelector": "div.wrapper_overview_right_list > ul > li",
+        "titleSelector": "span:first-child",
+        "publishedAtSelector": "span:nth-child(2)",
+        "parseMode": "html",
+        "linkSelector": "a",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://hzj.nea.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "nea",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "区域级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "_from": "xlsx:bureau"
+    },
+    {
+      "id": "web-hzj-nea-xxgk-zcfg",
+      "name": "国家能源局华中监管局 · 政策法规",
+      "kind": "web_list",
+      "config": {
+        "url": "https://hzj.nea.gov.cn/xxgk/zcfg/",
+        "itemSelector": "ul > li",
+        "titleSelector": "span:first-child",
+        "publishedAtSelector": "span:nth-child(2)",
+        "parseMode": "html",
+        "linkSelector": "a",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://hzj.nea.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "nea",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "区域级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "_from": "xlsx:bureau"
+    },
+    {
+      "id": "web-hzj-nea-xxgk-zcjd",
+      "name": "国家能源局华中监管局 · 政策解读",
+      "kind": "web_list",
+      "config": {
+        "url": "https://hzj.nea.gov.cn/xxgk/zcjd/",
+        "itemSelector": "ul > li",
+        "titleSelector": "span:first-child",
+        "publishedAtSelector": "span:nth-child(2)",
+        "parseMode": "html",
+        "linkSelector": "a",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://hzj.nea.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "nea",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "区域级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "_from": "xlsx:bureau"
+    },
+    {
+      "id": "web-nfj-nea-xwzx-tzgg",
+      "name": "国家能源局南方监管局 · 通知公示",
+      "kind": "web_list",
+      "config": {
+        "url": "https://nfj.nea.gov.cn/xwzx/tzgg/",
+        "itemSelector": "div.wrapper_overview_right_list > ul > li",
+        "titleSelector": "span:first-child",
+        "publishedAtSelector": "span:nth-child(2)",
+        "parseMode": "html",
+        "linkSelector": "a",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://nfj.nea.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "nea",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "区域级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "_from": "xlsx:bureau"
+    },
+    {
+      "id": "web-scb-nea-tzgg-index-7",
+      "name": "国家能源局四川监管办公室 · 通知公告",
+      "kind": "web_list",
+      "config": {
+        "url": "https://scb.nea.gov.cn/dtyw/tzgg/index_7.html",
+        "itemSelector": "div.wrapper_overview_right_list > ul > li",
+        "titleSelector": "span:first-child",
+        "publishedAtSelector": "span:nth-child(2)",
+        "parseMode": "html",
+        "linkSelector": "a",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://scb.nea.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "nea",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级监管办"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "_from": "xlsx:bureau"
+    },
+    {
+      "id": "web-sxb-nea-dtyw-jggg",
+      "name": "国家能源局山西监管办公室 · 监管公告",
+      "kind": "web_list",
+      "config": {
+        "url": "https://sxb.nea.gov.cn/dtyw/jggg/",
+        "itemSelector": "div.wrapper_overview_right_list > ul > li",
+        "titleSelector": "span:first-child",
+        "publishedAtSelector": "span:nth-child(2)",
+        "parseMode": "html",
+        "linkSelector": "a",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://sxb.nea.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "nea",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "省级监管办"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "_from": "xlsx:bureau"
+    },
+    {
+      "id": "web-ndrc-xwdt-xwfb",
+      "name": "中华人民共和国国家发展和改革委员会 · 新闻发布",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.ndrc.gov.cn/xwdt/xwfb/",
+        "parseMode": "html",
+        "itemSelector": "body > div.container > div.list > ul.u-list > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://www.ndrc.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [
+        "官方",
+        "国家级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-ndrc-xwdt-tzgg",
+      "name": "中华人民共和国国家发展和改革委员会 · 通知公告",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.ndrc.gov.cn/xwdt/tzgg/",
+        "parseMode": "html",
+        "itemSelector": "body > div.container > div.list > ul.u-list > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://www.ndrc.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [
+        "官方",
+        "国家级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-ndrc-xxgk-zcfb-ghxwj",
+      "name": "中华人民共和国国家发展和改革委员会 · 规范性文件",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.ndrc.gov.cn/xxgk/zcfb/ghxwj/",
+        "parseMode": "html",
+        "itemSelector": "body > div.container > div.list > ul.u-list > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://www.ndrc.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [
+        "官方",
+        "国家级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-ndrc-xxgk-zcfb-ghwb",
+      "name": "中华人民共和国国家发展和改革委员会 · 规划文本",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.ndrc.gov.cn/xxgk/zcfb/ghwb/",
+        "parseMode": "html",
+        "itemSelector": "body > div.container > div.list > ul.u-list > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://www.ndrc.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [
+        "官方",
+        "国家级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-ndrc-xxgk-zcfb-gg",
+      "name": "中华人民共和国国家发展和改革委员会 · 公告",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.ndrc.gov.cn/xxgk/zcfb/gg/",
+        "parseMode": "html",
+        "itemSelector": "body > div.container > div.list > ul.u-list > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://www.ndrc.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [
+        "官方",
+        "国家级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-ndrc-xxgk-jd-jd",
+      "name": "中华人民共和国国家发展和改革委员会 · 政策解读",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.ndrc.gov.cn/xxgk/jd/jd/",
+        "parseMode": "html",
+        "itemSelector": "body > div.container > div.list > ul.u-list > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://www.ndrc.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [
+        "官方",
+        "国家级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-ndrc-xxgk-jd-zctj",
+      "name": "中华人民共和国国家发展和改革委员会 · 政策图解",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.ndrc.gov.cn/xxgk/jd/zctj/",
+        "parseMode": "html",
+        "itemSelector": "body > div.container > div.list > ul.u-list > li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "publishedAtSelector": "span",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://www.ndrc.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "ndrc",
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [
+        "官方",
+        "国家级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-hzj-nea-dtyw-jgdt",
+      "name": "国家能源局华中监管局 · 监管动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://hzj.nea.gov.cn/dtyw/jgdt/",
+        "parseMode": "html",
+        "itemSelector": "div.wrapper_overview_right_list > ul > li",
+        "linkSelector": "a",
+        "titleSelector": "span:first-child",
+        "publishedAtSelector": "span:nth-child(2)",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://hzj.nea.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "nea",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "区域级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-hzj-nea-dtyw-tzgg",
+      "name": "国家能源局华中监管局 · 通知公告",
+      "kind": "web_list",
+      "config": {
+        "url": "https://hzj.nea.gov.cn/dtyw/tzgg/",
+        "parseMode": "html",
+        "itemSelector": "div.wrapper_overview_right_list > ul > li",
+        "linkSelector": "a",
+        "titleSelector": "span:first-child",
+        "publishedAtSelector": "span:nth-child(2)",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://hzj.nea.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "nea",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "区域级"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-nfj-nea-xwzx-jgdt",
+      "name": "国家能源局南方监管局 · 监管动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://nfj.nea.gov.cn/xwzx/jgdt/",
+        "parseMode": "html",
+        "itemSelector": "div.wrapper_overview_right_list > ul > li",
+        "linkSelector": "a",
+        "titleSelector": "span:first-child",
+        "publishedAtSelector": "span:nth-child(2)",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://nfj.nea.gov.cn/"
+        ],
+        "publishedAfter": "2026-01-01T00:00:00.000Z",
+        "_powerhot": {
+          "initialBackfillLimit": 20,
+          "initialBackfillMonths": 12
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "nea",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "官方",
+        "区域级"
       ],
       "site_fulltext": false,
       "syndicate_fulltext": false

@@ -4,10 +4,10 @@
 import { stub, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
-import { config } from "@aihot/backend/config";
-import { closeDb, sql } from "@aihot/backend/db";
-import { stopBoss } from "@aihot/backend/jobs/queue";
-import { collectSource } from "@aihot/backend/sources/collect";
+import { config } from "@powerhot/backend/config";
+import { closeDb, sql } from "@powerhot/backend/db";
+import { stopBoss } from "@powerhot/backend/jobs/queue";
+import { collectSource } from "@powerhot/backend/sources/collect";
 
 const T = tag();
 const X_SOURCE = `test-x-${T}`;

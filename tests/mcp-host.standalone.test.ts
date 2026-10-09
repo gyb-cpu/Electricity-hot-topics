@@ -10,7 +10,7 @@ import { request } from "node:http";
 import { after, test } from "node:test";
 import { promisify } from "node:util";
 import Fastify from "fastify";
-import { config } from "@aihot/backend/config";
+import { config } from "@powerhot/backend/config";
 import { registerMcp } from "../apps/api/src/routes/mcp.ts";
 
 const initialize = {

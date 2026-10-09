@@ -1,8 +1,8 @@
-// Run after `npm run build -w @aihot/web`. Real production server/router, synthetic HTTP API only.
+// Run after `npm run build -w @powerhot/web`. Real production server/router, synthetic HTTP API only.
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { after, before, test } from "node:test";
-import { CATEGORY_KEYS } from "@aihot/contracts/taxonomy";
+import { CATEGORY_KEYS } from "@powerhot/contracts/taxonomy";
 import { UNSAFE_decodeViaTurboStream } from "react-router";
 import { startWebServer, type WebServer } from "./web-server.ts";
 

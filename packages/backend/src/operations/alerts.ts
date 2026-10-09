@@ -6,8 +6,8 @@
 // A site's responder (modules.ts) filters findings for the owner, preserving repeat and recovery
 // tracking for messages it returns and replacing the default digest policy.
 // Delivery goes through sendAlert (ops chat, internal-chat fallback; off unless FEISHU_INTERNAL_ENABLED).
-import { beijingAt, beijingDate } from "@aihot/contracts/time";
-import { ALERTS, EDITION_TIMES } from "@aihot/site";
+import { beijingAt, beijingDate } from "@powerhot/contracts/time";
+import { ALERTS, EDITION_TIMES } from "@powerhot/site";
 import { sql } from "../db.ts";
 import { beijingDay, beijingStamp, duration, formatAlert, formatRecovery, sendAlert, type Finding, type Level } from "../notify/feishu.ts";
 import { stepsOnService } from "../editorial/models.ts";

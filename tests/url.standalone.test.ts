@@ -7,8 +7,8 @@ import dns from "node:dns/promises";
 import { syncBuiltinESMExports } from "node:module";
 import { after, mock, test } from "node:test";
 import { Agent, fetch as undiciFetch } from "undici";
-import { guardedFetch } from "@aihot/backend/lib/http-fetch";
-import { assertPublicUrl, guardedLookup, isBlockedAddress } from "@aihot/backend/lib/url";
+import { guardedFetch } from "@powerhot/backend/lib/http-fetch";
+import { assertPublicUrl, guardedLookup, isBlockedAddress } from "@powerhot/backend/lib/url";
 
 let hits = 0;
 const server = http.createServer((_req, res) => { hits++; res.end("public content"); });

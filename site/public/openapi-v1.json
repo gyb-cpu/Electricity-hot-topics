@@ -19,7 +19,7 @@
     "/api/v1/items": {
       "get": {
         "operationId": "items",
-        "summary": "List recent public AI items",
+        "summary": "List recent public items",
         "description": "Start here for feeds, widgets and 'what is new' views. Covers the last 7 days only. Send If-None-Match and you get a 304 with an empty body whenever nothing changed. To follow new items, page back with cursor only until you reach an id you already have. Do not use this to maintain a complete local copy of the selected set: it is windowed, so anything older than 7 days silently falls out. Use /api/v1/selected/snapshot plus /api/v1/selected/changes for that.",
         "parameters": [
           {
@@ -3450,11 +3450,11 @@
           "links": {
             "type": "object",
             "required": [
-              "aihot",
+              "powerhot",
               "original"
             ],
             "properties": {
-              "aihot": {
+              "powerhot": {
                 "type": "string",
                 "format": "uri"
               },
@@ -3542,10 +3542,10 @@
           "links": {
             "type": "object",
             "required": [
-              "aihot"
+              "powerhot"
             ],
             "properties": {
-              "aihot": {
+              "powerhot": {
                 "type": "string",
                 "format": "uri"
               }
@@ -3732,11 +3732,11 @@
           "links": {
             "type": "object",
             "required": [
-              "aihot",
+              "powerhot",
               "original"
             ],
             "properties": {
-              "aihot": {
+              "powerhot": {
                 "type": "string",
                 "format": "uri"
               },
@@ -3845,10 +3845,10 @@
           "links": {
             "type": "object",
             "required": [
-              "aihot"
+              "powerhot"
             ],
             "properties": {
-              "aihot": {
+              "powerhot": {
                 "type": "string",
                 "format": "uri"
               },
@@ -3881,11 +3881,11 @@
           "links": {
             "type": "object",
             "required": [
-              "aihot",
+              "powerhot",
               "api"
             ],
             "properties": {
-              "aihot": {
+              "powerhot": {
                 "type": "string",
                 "format": "uri"
               },
@@ -3963,10 +3963,10 @@
           "links": {
             "type": "object",
             "required": [
-              "aihot"
+              "powerhot"
             ],
             "properties": {
-              "aihot": {
+              "powerhot": {
                 "type": "string",
                 "format": "uri"
               }
@@ -4063,10 +4063,10 @@
           "links": {
             "type": "object",
             "required": [
-              "aihot"
+              "powerhot"
             ],
             "properties": {
-              "aihot": {
+              "powerhot": {
                 "type": "string",
                 "format": "uri"
               }
@@ -4080,11 +4080,11 @@
       "DailyContentLinks": {
         "type": "object",
         "required": [
-          "aihot",
+          "powerhot",
           "original"
         ],
         "properties": {
-          "aihot": {
+          "powerhot": {
             "type": [
               "string",
               "null"
@@ -4129,10 +4129,10 @@
           "links": {
             "type": "object",
             "required": [
-              "aihot"
+              "powerhot"
             ],
             "properties": {
-              "aihot": {
+              "powerhot": {
                 "type": "string",
                 "format": "uri"
               }
@@ -4525,10 +4525,10 @@
           "links": {
             "type": "object",
             "required": [
-              "aihot"
+              "powerhot"
             ],
             "properties": {
-              "aihot": {
+              "powerhot": {
                 "type": "string",
                 "format": "uri"
               }
@@ -4669,10 +4669,10 @@
           "links": {
             "type": "object",
             "required": [
-              "aihot"
+              "powerhot"
             ],
             "properties": {
-              "aihot": {
+              "powerhot": {
                 "type": "string",
                 "format": "uri"
               }

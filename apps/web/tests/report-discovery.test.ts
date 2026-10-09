@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { after, before, test } from 'node:test';
 import * as cheerio from 'cheerio';
-import { MCP_TOOL_NAMES } from '@aihot/contracts/mcp';
+import { MCP_TOOL_NAMES } from '@powerhot/contracts/mcp';
 import { startWebServer, type WebServer } from './web-server.ts';
 
 let web: WebServer;

@@ -6,17 +6,17 @@ import { tag } from './setup.ts';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import { after, before, test } from 'node:test';
-import { config } from '@aihot/backend/config';
-import { sql, closeDb } from '@aihot/backend/db';
-import { upsertMaterial } from '@aihot/backend/content/materials';
-import { extractArticleBody } from '@aihot/backend/content/extract';
-import { buildScoreInput, loadAnalyzeInput } from '@aihot/backend/editorial/analyze';
-import { collectSource } from '@aihot/backend/sources/collect';
-import { groupArticle } from '@aihot/backend/events/group';
-import { publishArticle } from '@aihot/backend/publication/publish';
-import { selectedContent } from '@aihot/backend/notify/selected-content';
-import { dailyEdition } from '@aihot/backend/reports/edition';
-import { stopBoss } from '@aihot/backend/jobs/queue';
+import { config } from '@powerhot/backend/config';
+import { sql, closeDb } from '@powerhot/backend/db';
+import { upsertMaterial } from '@powerhot/backend/content/materials';
+import { extractArticleBody } from '@powerhot/backend/content/extract';
+import { buildScoreInput, loadAnalyzeInput } from '@powerhot/backend/editorial/analyze';
+import { collectSource } from '@powerhot/backend/sources/collect';
+import { groupArticle } from '@powerhot/backend/events/group';
+import { publishArticle } from '@powerhot/backend/publication/publish';
+import { selectedContent } from '@powerhot/backend/notify/selected-content';
+import { dailyEdition } from '@powerhot/backend/reports/edition';
+import { stopBoss } from '@powerhot/backend/jobs/queue';
 import { buildApp } from '../apps/api/src/app.ts';
 
 const T=tag(), SOURCE=`freshness-${T}`;
@@ -40,7 +40,7 @@ const row=async(id:string)=>(await sql`SELECT * FROM articles WHERE id=${id}`)[0
 async function highScore(id:string){
   const a=await row(id);
   await sql`INSERT INTO analyses(article_id,input_revision,origin,relevance,category,title_zh,summary_zh,score,selected,output)
-    VALUES(${id},${a.revision},'rule','pass','ai-models',${'模型资料 '+id},'这是一份模型资料，评分不能证明它刚发布。',99,true,${sql.json({scope:'single',fact:{title:'Model release',subject:'Maker',action:'release',object:'Model'}})})`;
+    VALUES(${id},${a.revision},'rule','pass','policy',${'模型资料 '+id},'这是一份模型资料，评分不能证明它刚发布。',99,true,${sql.json({scope:'single',fact:{title:'Model release',subject:'Maker',action:'release',object:'Model'}})})`;
   await sql`UPDATE articles SET grouping_status='complete',grouped_at=now(),selection_adds_value=true WHERE id=${id}`;
   await publishArticle(id);
 }
@@ -104,7 +104,7 @@ test('body extraction uses page publication metadata, never its updated time or 
 
 test('the second fetch of an initial catalogue still archives its undated remainder',async()=>{
   const id=`first-${T}`;
-  await sql`INSERT INTO sources(id,name,kind,config,next_fetch_at) SELECT ${id},name,kind,config||'{"_aihot":{"initialBackfillLimit":1}}'::jsonb,'2100-01-01' FROM sources WHERE id=${SOURCE}`;
+  await sql`INSERT INTO sources(id,name,kind,config,next_fetch_at) SELECT ${id},name,kind,config||'{"_powerhot":{"initialBackfillLimit":1}}'::jsonb,'2100-01-01' FROM sources WHERE id=${SOURCE}`;
   listing=[0,1,2].map(i=>({url:`${base}/initial-${i}`,title:`Reference ${i}`,date:null,summary:body}));
   assert.equal((await collectSource(id)).created,1);
   assert.equal((await collectSource(id)).created,2);

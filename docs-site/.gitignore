@@ -1,0 +1,5 @@
+# Mintlify 本地开发产生的文件
+.mintlify/
+node_modules/
+.env.development
+*.log

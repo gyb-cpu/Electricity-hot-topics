@@ -5,13 +5,13 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { after, test } from "node:test";
 import sharp from "sharp";
-import { config } from "@aihot/backend/config";
-import { closeDb, sql } from "@aihot/backend/db";
+import { config } from "@powerhot/backend/config";
+import { closeDb, sql } from "@powerhot/backend/db";
 import { buildApp } from "../apps/api/src/app.ts";
-import { eraseFeedback } from "@aihot/backend/admin/feedback";
+import { eraseFeedback } from "@powerhot/backend/admin/feedback";
 
 process.env.FEISHU_INTERNAL_ENABLED = "false";
-config.dataDir = await mkdtemp(path.join(tmpdir(), "aihot-upload-"));
+config.dataDir = await mkdtemp(path.join(tmpdir(), "powerhot-upload-"));
 const app = await buildApp();
 after(async () => { await app.close(); await closeDb(); await rm(config.dataDir, { recursive: true }); });
 

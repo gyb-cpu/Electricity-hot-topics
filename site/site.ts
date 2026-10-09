@@ -18,16 +18,16 @@ export const EDITION_WHEN = {
 
 export const SITE = {
   /** 站名：导航、页面标题、分享图、RSS、MCP、后台都用它。 */
-  name: "MyHOT",
+  name: "电力热点宝",
   /**
-   * 行业词：拼进默认说法里，比如“AI 日报”“AI 动态”。
+   * 行业词：拼进默认说法里，比如“电力日报”“电力动态”。
    * 改成“法律”“HR”“黄金”之类，页面上就会变成“法律日报”“法律动态”。
    */
-  subject: "AI",
+  subject: "电力",
   /** 首页的完整标题（浏览器标签、搜索结果）。 */
-  homeTitle: "MyHOT — AI 行业动态 · 每日精选与日报",
+  homeTitle: "电力热点宝 — 电力行业政策与动态 · 每日精选与日报",
   /** 主题目录页（/topics）的标题。 */
-  topicsTitle: "AI 主题：公司与模型、技术方向、内容形态的最新动态",
+  topicsTitle: "电力主题：主管部门与电网、电价与市场、各类电源与新能源",
   /** 反馈表单输入框里的示例。 */
   feedbackExample: "例如：我在搜索某个关键词时遇到……我原本想……",
   /** 反馈页标题下面的一句话。 */
@@ -35,13 +35,13 @@ export const SITE = {
   /** 反馈表单邮箱框里的提示。 */
   feedbackEmailHint: "留下邮箱，我们可以回信联系你",
   /** 一句话介绍：搜索引擎、分享卡片、RSS、llms.txt 会用。 */
-  description: `从一批 AI 信源里挑出值得看的动态，把同一件事的多篇报道归到一起，${EDITION_WHEN.daily} 出一份日报。`,
+  description: `从一批电力行业的官方信源里挑出值得看的政策、规则与项目动态，把同一件事的多篇报道归到一起，${EDITION_WHEN.daily} 出一份日报。`,
   /** llms.txt 里一句话介绍下面的一段详细介绍（选填）。 */
   llmsIntro: null as string | null,
   /** 一行小字：分享图、海报下方。 */
-  tagline: "值得关注的 AI 动态",
+  tagline: "值得关注的电力政策与动态",
   /** 搜索引擎读到的关键词（首页结构化数据）。 */
-  keywords: ["AI 资讯", "AI 新闻", "AI 日报", "AI 行业动态"] as string[],
+  keywords: ["电力行业", "电力政策", "电力新闻", "电力日报", "电价", "电力市场"] as string[],
   /** 网站开始收录的年份（结构化数据的时间范围，选填）。 */
   since: null as string | null,
   /** 界面语言（HTML lang、og:locale）。 */
@@ -51,10 +51,10 @@ export const SITE = {
   /** 标准图标（favicon.ico、icon.png、icon-192.png、apple-icon.png、logo.svg）以外也放在网站根目录的图标，site/brand/ 里的文件名（选填）；manifest.webmanifest 或外站引用了它们时用。 */
   rootIcons: [] as string[],
   /**
-   * MCP 工具名的前缀（小写字母、数字、下划线），工具会叫 myhot_get_latest、myhot_search……
+   * MCP 工具名的前缀（小写字母、数字、下划线），工具会叫 powerhot_get_latest、powerhot_search……
    * 已经有人接入后就不要再改。
    */
-  mcpPrefix: "myhot",
+  mcpPrefix: "powerhot",
   /**
    * 公开接口（MCP、OpenAPI、llms.txt）的版本号，只升不降。
    * 改了接口里已有的字段或含义时升主版本，并在部署说明里写清。
@@ -63,19 +63,19 @@ export const SITE = {
   /** 对外联系邮箱（选填）：llms.txt 和给 Agent 的使用说明里会写。 */
   contactEmail: null as string | null,
   /** 关于页底部的一行小字（选填）。 */
-  footerNote: "由 AIHOT 开源框架驱动",
+  footerNote: null,
   /** 中国大陆网站的 ICP 备案号（选填），填了就显示在侧栏底部和“我的”页底部，并链接到工信部备案系统。 */
   icp: null as string | null,
   /** 源码的 GitHub 仓库地址（选填），填了就在侧栏底部和“我的”页底部显示“GitHub 开源”。 */
   github: null as string | null,
   /** 结构化数据里的网站运营者（搜索引擎用）。 */
   organization: {
-    name: "MyHOT",
+    name: "电力热点宝",
     /** 创始人（选填）。 */
     founder: null as null | { name: string; alternateName?: string; jobTitle?: string; description?: string; url?: string },
   },
   /** 抓取信源时报上的名字和版本（User-Agent 里用），不要冒用别的站。 */
-  crawlerName: "MyHOTBot/1.0",
+  crawlerName: "PowerHotBot/1.0",
 } as const;
 
 /** 使用规则和隐私说明两页（正文在 pages/ 里）。 */
@@ -134,15 +134,15 @@ export const ABOUT = {
   /** 页面描述（搜索结果、分享卡片）。 */
   description: `关于 ${SITE.name}：${SITE.description}`,
   /** 大标题：第一行正常颜色，第二行强调色。 */
-  headline: ["AI 圈每天都有新动静，", "值得看的，只有几条。"] as [string, string],
+  headline: ["电力政策每天都有新动静，", "值得看的，只有几条。"] as [string, string],
   /** 标题下面的一段话。{sources} 会换成实时的信源数（两边自动加空格，所以 {sources} 两边不写空格）；统计没取到时换成 sourcesFallback。 */
-  lead: `${SITE.name} 替你盯着{sources}个信源：抓取、归并、打分、精选，${EDITION_WHEN.daily} 出一份日报。免费，不用注册。`,
-  sourcesFallback: "十几",
+  lead: `${SITE.name} 替你盯着{sources}个官方信源：抓取、归并、打分、精选，${EDITION_WHEN.daily} 出一份日报。免费，不用注册。`,
+  sourcesFallback: "九",
   /** 信源河动画下面的四个环节。 */
   steps: {
-    collect: "官方博客、媒体和个人的订阅源都在看；更新越勤的源看得越勤，最快 15 分钟看一次。",
+    collect: "国家发展改革委、国家能源局、中国政府网、各能源监管机构和省级发改部门的发布栏目是主力，电网与发电企业的公告其次；发文越频繁的源看得越勤。",
     store: "抓到的都存下来，同一件事的报道归到一起，热点榜就是从这里算出来的。",
-    select: `模型先看是不是这个行业的事、有没有实际信息，再写中文标题、摘要和${ITEM_COPY.reasonLabel}；营销稿和重复转发进不来。`,
+    select: `模型先看是不是电力行业的事、有没有实际信息，再写中文标题、摘要和${ITEM_COPY.reasonLabel}；会议通知、荣誉宣传和重复转发进不来。`,
     publish: `${EDITION_WHEN.daily} 出日报，${EDITION_WHEN.weekly} 出周报，${EDITION_WHEN.monthly} 出月报。`,
   },
   /**
@@ -176,7 +176,7 @@ export const ADMIN = {
 /** Agent 接入页的示例。 */
 export const AGENT = {
   /** MCP 工具表里“搜索”一行：能搜什么、可以怎么问。 */
-  search: { scope: "按公司、产品、人物或话题搜最近 7 天", ask: "这家公司最近发了什么？" },
+  search: { scope: "按主管部门、电网与发电集团、项目、电价机制或业务方向搜最近 7 天", ask: "国家能源局最近发了什么？" },
 };
 
 /** 日报、周报、月报版面上的说法。 */
@@ -257,7 +257,7 @@ export const ACCESS = {
 
 /** 这个部署自己的几处安排（选填）。 */
 export const DEPLOYMENT = {
-  /** 凭据分组文件（models.env、collectors.env……）默认放在哪个目录，相对仓库根目录；环境变量 AIHOT_CREDENTIALS_DIR 优先，都没有就只读环境变量。 */
+  /** 凭据分组文件（models.env、collectors.env……）默认放在哪个目录，相对仓库根目录；环境变量 POWERHOT_CREDENTIALS_DIR 优先，都没有就只读环境变量。 */
   credentialsDir: null as string | null,
   /** 凭据分组的文件名（放在凭据目录下，选填）：没写的分组用“分组名.env”，比如 models.env。 */
   credentialFiles: {} as Partial<Record<string, string>>,
@@ -287,7 +287,7 @@ export const DEPLOYMENT = {
 /** RSS 订阅源的说明里随站点而变的说法。 */
 export const FEED_COPY = {
   /** “全部动态”源的说明里，除了未审内容、低相关条目和已合并重复条目，还写明不含的内容（选填）。 */
-  allLeavesOut: [] as string[],
+  allLeavesOut: ["与发电、输电、配电和用电无关的其他能源新闻"] as string[],
 };
 
 /**
@@ -300,12 +300,12 @@ export const PUBLIC_CATEGORIES = {
   feedLabels: {},
 } as const;
 
-/** “AI 日报”这类说法：行业词和名词之间，英文词加空格，中文词不加。 */
+/** “电力日报”这类说法：行业词和名词之间，英文词加空格，中文词不加。 */
 export function withSubject(noun: string): string {
   return /[A-Za-z0-9]$/.test(SITE.subject) ? `${SITE.subject} ${noun}` : `${SITE.subject}${noun}`;
 }
 
-/** “按主题看 AI”“往期 AI 日报”这类说法：行业词接在中文后面，英文词前加空格，中文词不加；noun 照 withSubject 接上。 */
+/** “按主题看电力”“往期电力日报”这类说法：行业词接在中文后面，英文词前加空格，中文词不加；noun 照 withSubject 接上。 */
 export function subjectAfter(text: string, noun?: string): string {
   const gap = /^[A-Za-z0-9]/.test(SITE.subject) ? " " : "";
   return `${text}${gap}${noun ? withSubject(noun) : SITE.subject}`;

@@ -1,17 +1,19 @@
-// Article body extraction: readable text from the article page, or "unconfirmed" — never a wrong body.
-// Jina Reader is the budgeted fallback for pages that only render in a browser.
+// Article body extraction: readable text from the article page, then the attachment the page links
+// when the document itself lives in a file, or "unconfirmed" — never a wrong body. Jina Reader is the
+// budgeted last resort for pages that only render in a browser.
 import { Readability } from "@mozilla/readability";
 import { parseHTML } from "linkedom";
 import { sql } from "../db.ts";
 import { guardedFetch } from "../lib/http-fetch.ts";
 import { stripTags } from "../lib/text.ts";
 import { isVideoPageUrl } from "../lib/video-url.ts";
-import { jinaRead } from "../providers/jina.ts";
+import { JinaUnavailableError, jinaRead } from "../providers/jina.ts";
 import { BudgetExceededError } from "../providers/receipts.ts";
 import { getArticle } from "../providers/socialdata.ts";
 import { articleUtcOffset, parseLooseDate } from "../sources/dates.ts";
 import type { SourceRow } from "../sources/types.ts";
 import { onlyXArticleLink, xArticleText } from "../sources/x.ts";
+import { attachmentLinks, pdfHtml, pdfText } from "./pdf.ts";
 import { sanitizeBody, trimTrailingChrome } from "./sanitize.ts";
 import { contentHash, fillPublicationTime, reviseMaterial } from "./materials.ts";
 import { markdownBody } from "./markdown.ts";
@@ -20,7 +22,7 @@ export interface ExtractedBody {
   html: string;
   text: string;
   images: Array<{ kind: "image"; url: string; width: number | null; height: number | null }>;
-  via: "readability" | "jina";
+  via: "readability" | "pdf" | "jina";
   /** The page's publication metadata; neither modification time nor dates mentioned in its prose. */
   publishedAt?: Date | null;
 }
@@ -86,8 +88,13 @@ export async function extractFromUrl(url: string, subject: string, utcOffset?: s
     if (isVideoPageUrl(res.url)) return null;
     const type = res.headers.get("content-type") ?? "";
     if (res.status === 200 && /html/.test(type)) {
-      const got = readable(res.text(), res.url, utcOffset);
+      const html = res.text();
+      const got = readable(html, res.url, utcOffset);
       if (got) return got;
+      // A notice page is often only the announcement: the document is the PDF it links. Reading it is
+      // free and local, so it is tried before anything that costs money.
+      const attachment = await fromAttachment(html, res.url);
+      if (attachment) return attachment;
     }
   } catch {
     // fall through to Jina
@@ -99,7 +106,9 @@ export async function extractFromUrl(url: string, subject: string, utcOffset?: s
     if (text.length < MIN_BODY_CHARS) return null;
     return { html, text, images: [], via: "jina" };
   } catch (error) {
-    if (error instanceof BudgetExceededError) return null;
+    // No budget or no credential leaves the page with whatever the direct read gave: record it as such
+    // rather than retrying every ten minutes, which a page that can never be read would do forever.
+    if (error instanceof BudgetExceededError || error instanceof JinaUnavailableError) return null;
     throw error;
   }
 }
@@ -113,6 +122,22 @@ export function pageFetchable(url: string, sourceKind: string): boolean {
   } catch {
     return false;
   }
+}
+
+/** The document the page links as a PDF attachment, when the page itself carries too little text. */
+async function fromAttachment(html: string, pageUrl: string): Promise<ExtractedBody | null> {
+  for (const link of attachmentLinks(html, pageUrl).slice(0, 2)) {
+    try {
+      const res = await guardedFetch(link, { timeoutMs: 45_000, maxBytes: 25 * 1024 * 1024 });
+      if (res.status !== 200 || !/pdf/i.test(res.headers.get("content-type") ?? "")) continue;
+      const text = await pdfText(new Uint8Array(res.body));
+      if (!text) continue;
+      return { html: pdfHtml(text), text, images: [], via: "pdf" };
+    } catch {
+      // A missing or unreadable attachment is not this article's failure; try the next one.
+    }
+  }
+  return null;
 }
 
 /** Fetches and stores the body of one article. Unconfirmed bodies are recorded as such. */

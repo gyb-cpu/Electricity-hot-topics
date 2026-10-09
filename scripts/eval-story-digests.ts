@@ -11,14 +11,14 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { parseArgs } from "node:util";
-import { REPO_ROOT } from "@aihot/backend/config";
-import { closeDb, sql } from "@aihot/backend/db";
-import { promptFromText } from "@aihot/backend/editorial/prompts";
-import { DIGEST_PROMPT_VERSION, DIGEST_SAMPLING, DIGEST_SYSTEM, DigestSchema, buildStoryDigestInput } from "@aihot/backend/events/digest";
-import { sha256 } from "@aihot/backend/lib/ids";
-import { ModelOutputError, chatJson } from "@aihot/backend/providers/llm";
-import { ReceiptUnknownError, completeReceipt } from "@aihot/backend/providers/receipts";
-import { digestReports } from "@aihot/backend/publication/story-evidence";
+import { REPO_ROOT } from "@powerhot/backend/config";
+import { closeDb, sql } from "@powerhot/backend/db";
+import { promptFromText } from "@powerhot/backend/editorial/prompts";
+import { DIGEST_PROMPT_VERSION, DIGEST_SAMPLING, DIGEST_SYSTEM, DigestSchema, buildStoryDigestInput } from "@powerhot/backend/events/digest";
+import { sha256 } from "@powerhot/backend/lib/ids";
+import { ModelOutputError, chatJson } from "@powerhot/backend/providers/llm";
+import { ReceiptUnknownError, completeReceipt } from "@powerhot/backend/providers/receipts";
+import { digestReports } from "@powerhot/backend/publication/story-evidence";
 import {
   caseFromStory,
   digestComparisonMarkdown,

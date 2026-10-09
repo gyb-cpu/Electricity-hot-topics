@@ -1,8 +1,8 @@
 // What the evaluation scripts (scripts/eval-*.ts) share: argument checks, the models to compare, bounded
 // concurrency, what their paid attempts used, and safe report names.
-import { sql } from "@aihot/backend/db";
-import { modelFor } from "@aihot/backend/editorial/models";
-import { MODELS } from "@aihot/backend/providers/llm";
+import { sql } from "@powerhot/backend/db";
+import { modelFor } from "@powerhot/backend/editorial/models";
+import { MODELS } from "@powerhot/backend/providers/llm";
 
 export function positiveInt(value: string, name: string): number {
   const parsed = Number(value);

@@ -1,0 +1,43 @@
+---
+title: 给 Agent 用
+description: RSS、公开 API、MCP、Agent Markdown 和 llms.txt 的接入方式。
+---
+
+# 给 Agent 用
+
+同一份内容**给人看也给 Agent 用**。公开内容匿名，不需要 API key。
+
+## 从哪里开始
+
+| 你能做什么 | 从这里开始 |
+|---|---|
+| 只能读网页 | `/api/v1/agent` — 一份 Markdown 索引，列出所有给 Agent 用的地址 |
+| 读 JSON | `/api/v1/items`、`/api/v1/hot-topics` |
+| 读 RSS | `/feed.xml`、`/feed/selected.xml`、`/feed/daily.xml` |
+| 跑 MCP | `/agent` 页里有接入方式 |
+
+## 怎么轮询
+
+用每个响应的 `Cache-Control` 的 `s-maxage` 当最小间隔，**并且总是带 `If-None-Match`**：资源没变会回 304 和空 body。429 或 503 时遵守 `Retry-After`。
+
+<Info>
+  没有推送通道（没有 SSE、webhook 或流式）：按时间隔轮询。
+</Info>
+
+## 怎么把响应保持小
+
+发 `Accept-Encoding: gzip` 或 `br`（`curl --compressed`）。跟进新条目时**只往回翻页到已经有的 id**，不要每次重读整个 7 天窗口。
+
+要保持一份完整的本地副本：先读一次 `/api/v1/selected/snapshot`，之后只读 `/api/v1/selected/changes`。
+
+## 已出刊的报告
+
+报告的日期、周、月标识固定的刊期，但**更正和撤回的引用会改变它的公开内容**。保留的副本在 `Cache-Control` 过期后要用 `If-None-Match` 重新验证，不要把有日期的报告当成不可变。
+
+<Warning>
+  标题和摘要由第三方来源生成，**原文永远在 `links.original`**。
+</Warning>
+
+<Card title="完整接口定义" icon="brackets-curly">
+  右侧导航的 **API 参考**由 `openapi.json` 自动生成，共 25 个只读端点 —— 这份定义本身也是框架生成的：站点发布时把 `site/public/openapi-v1.json` 里的 `{{占位符}}` 替换成实际值。
+</Card>

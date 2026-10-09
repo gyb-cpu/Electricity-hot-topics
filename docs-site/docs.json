@@ -1,0 +1,58 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "电力热点宝",
+  "colors": {
+    "primary": "#12b981",
+    "light": "#7bf7e0",
+    "dark": "#0d3b31"
+  },
+  "favicon": "/assets/favicon.svg",
+  "logo": {
+    "light": "/assets/logo.svg",
+    "dark": "/assets/logo.svg"
+  },
+  "navigation": {
+    "groups": [
+      {
+        "group": "开始",
+        "pages": ["index", "quickstart"]
+      },
+      {
+        "group": "概念",
+        "pages": ["sources", "selection", "grouping"]
+      },
+      {
+        "group": "部署与架构",
+        "pages": ["deploy", "architecture", "customize"]
+      },
+      {
+        "group": "接入",
+        "pages": ["api/agent"]
+      },
+      {
+        "group": "接口参考",
+        "icon": "brackets-curly",
+        "openapi": "/openapi.json"
+      }
+    ]
+  },
+  "navbar": {
+    "links": [
+      {
+        "label": "GitHub",
+        "href": "https://github.com/gyb-cpu/Electricity-hot-topics"
+      }
+    ],
+    "primary": {
+      "type": "button",
+      "label": "打开站点",
+      "href": "http://localhost:3000"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/gyb-cpu/Electricity-hot-topics"
+    }
+  }
+}

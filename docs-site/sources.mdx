@@ -1,0 +1,69 @@
+---
+title: 信源
+description: RSS、网页列表、JSON 接口、X 账号、微信公众号和外部推送六种信源怎么配。
+---
+
+# 信源
+
+信源在后台 **信源** 页管理：新建、试抓一次看看抓到什么、改频率、启停、看失败原因和最近的条目。首次启动时，`industry/sources.json` 里的示范信源会被导入。
+
+## 六种信源
+
+| 类型 | 适合 | 需要 |
+|---|---|---|
+| `rss` | 有 RSS / Atom 的博客、媒体、Substack | 无 |
+| `web_list` | 没有 RSS 的网页列表 | 写选择器；按需配置 Jina Reader（按次计费） |
+| `json_list` | 返回 JSON 的接口 | 写字段路径 |
+| `x_search` | X（推特）账号 | SocialData 的 key，按请求计费 |
+| `mp_account` | 微信公众号 | 极致了（Dajiala）的 key，按请求计费 |
+| `external` | 你自己的脚本推送进来的内容 | `INGEST_TOKEN` |
+
+<Note>
+  `json_list` 的地址或配置可能携带凭据，只跟随**同源**重定向（协议、主机和端口都相同）。若接口搬到另一个来源，请直接更新信源地址。
+</Note>
+
+## 先预览，再创建
+
+进入 `/admin/sources/new`，填 ID、名称，选类型，再把配置 JSON 填进「采集配置」。`rss`、`web_list`、`json_list`、`x_search` 可以点 **预览抓取**：显示条目总数和前 20 条，不把条目存入文章库。
+
+<Warning>
+  预览仍会发出抓取请求；X 和 Jina 预览也可能产生费用，经过付费回执和预算。`COLLECT_ENABLED=false` 只关闭后台自动采集，**不能**用它来保证手动预览不访问外部服务。
+</Warning>
+
+## web_list 的关键
+
+`itemSelector` 要选中**每条新闻**，而不是包住所有新闻的容器：
+
+```json
+{
+  "url": "https://example.com/news",
+  "parseMode": "html",
+  "itemSelector": ".news-list > .news-item",
+  "linkSelector": "h2 a",
+  "titleSelector": "h2 a",
+  "publishedAtSelector": "time",
+  "allowUrlPrefixes": ["https://example.com/posts/"]
+}
+```
+
+选 `.news-list` 只会得到一个容器，通常只取到第一条新闻；只写 `div` 又会混入嵌套容器。要选**重复出现**的新闻节点。
+
+## 分级与全文方式
+
+信源分三级，入选门槛不同：
+
+| 分级 | 含义 |
+|---|---|
+| `T1` | 官方一手 |
+| `T1_5` | 官方账号与准官方（填了 `publisherRole` 的） |
+| `T2` | 媒体与个人 |
+
+默认只展示摘要和原文链接（`site_fulltext` 关）；只有来源明确允许时才打开全文。
+
+## 旧文不刷屏
+
+发现时已发布超 48 小时的资料、新信源第一次导入的存量、回灌的推送，按原文时间归档，**不进「今天」、不推送**。没有可信发布时间的资料先不公开，读到日期后再判断新旧。
+
+<Card title="自定义信源" icon="code">
+  每种信源认哪些配置项写在 `packages/backend/src/sources/config-keys.ts`。填了不认识的配置项，保存会被拒绝，不会悄悄退回通用解析。
+</Card>
