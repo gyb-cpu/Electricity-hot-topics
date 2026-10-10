@@ -89,7 +89,19 @@ docker compose up -d --build
 
 ### 在中国大陆的服务器上
 
-- 构建时 npm 走国内镜像：`docker compose build --build-arg NPM_REGISTRY=https://registry.npmmirror.com`，然后 `docker compose up -d`。
+- 构建时 apt 和 npm 都走国内镜像（两处都要，缺一个整次构建要慢上几百倍）：
+
+  ```bash
+  docker compose build \
+    --build-arg DEBIAN_MIRROR=http://mirrors.cloud.tencent.com/debian \
+    --build-arg NPM_REGISTRY=https://registry.npmmirror.com
+  docker compose up -d
+  ```
+
+  `DEBIAN_MIRROR` 只填基础地址，security 仓库由它加 `-security` 后缀推出。换阿里云、华为云等镜像同理换成对应地址。实测腾讯云内网到 `mirrors.cloud.tencent.com` 约 5.9 MB/s，到 `deb.debian.org` 只有几 KB/s——`npm ci` 那一步要拉几百 MB 依赖，用境外源基本等于构建不完。
+
+  注意腾讯云这个镜像走 **http**，写 https 会报 `certificate verify failed`（它解析到内网地址 `169.254.0.3`，没有可校验的证书）。如果换的镜像支持 https，用 https 更稳妥。
+
 - 拉取 Docker 镜像慢，先给 Docker 配置镜像加速。
 - 海外信源抓不到时，在 `.env` 里设置 `EGRESS_PROXY_URL`：抓信源和图片时走这个代理，调用模型接口不走。
 - 对外提供网站服务需要先完成 ICP 备案，备案号填在 `site/site.ts` 的 `icp`。
