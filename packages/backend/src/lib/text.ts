@@ -2,6 +2,33 @@ export function collapseWhitespace(s: string): string {
   return s.replace(/\s+/g, " ").trim();
 }
 
+/**
+ * Appends the closing brackets a model left off a JSON object: `{"a":{"b":1}` becomes
+ * `{"a":{"b":1}}`. Returns null when this cannot be completed (a mismatched closer, or an
+ * unterminated string). Callers use it only after JSON.parse has failed and still validate the
+ * parsed value, so a truncated answer fails its schema instead of being trusted.
+ */
+export function completeJsonBrackets(json: string): string | null {
+  const open: string[] = [];
+  let inString = false;
+  let escaped = false;
+  for (const ch of json) {
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === "\\") escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') inString = true;
+    else if (ch === "{" || ch === "[") open.push(ch);
+    else if (ch === "}" || ch === "]") {
+      if (open.pop() !== (ch === "}" ? "{" : "[")) return null;
+    }
+  }
+  if (inString || open.length === 0) return null;
+  return json + open.reverse().map((c) => (c === "{" ? "}" : "]")).join("");
+}
+
 export function truncate(s: string, max: number, ellipsis = "…"): string {
   const chars = [...s];
   if (chars.length <= max) return s;

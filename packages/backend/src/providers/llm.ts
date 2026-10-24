@@ -6,6 +6,7 @@ import type { z } from "zod";
 import { PRESETS } from "@powerhot/site/models";
 import { config, credential } from "../config.ts";
 import { sha256 } from "../lib/ids.ts";
+import { completeJsonBrackets } from "../lib/text.ts";
 import { assertAccepted, paidRequest, ProviderRejectedError, rejectReceivedResponse } from "./receipts.ts";
 
 export interface ModelSpec {
@@ -97,7 +98,16 @@ function extractJson(text: string): unknown {
   try {
     return JSON.parse(body);
   } catch {
-    return JSON.parse(escapeControlCharsInStrings(body));
+    const escaped = escapeControlCharsInStrings(body);
+    try {
+      return JSON.parse(escaped);
+    } catch (error) {
+      // A model sometimes stops one bracket short of a complete object (observed with MiniMax-M3.1-Flash
+      // on a grouping answer). Complete the open brackets and let the caller's schema judge the value.
+      const completed = completeJsonBrackets(escaped);
+      if (completed !== null) return JSON.parse(completed);
+      throw error;
+    }
   }
 }
 
