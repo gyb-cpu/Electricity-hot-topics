@@ -266,6 +266,43 @@ MCP 的 `subscriptions/listen` 现在立即返回 HTTP 404 和 JSON-RPC `-32601 
 - **3.x 的 `/agent` 默认打开 Agent Markdown**，MCP 的接入说明在 `/agent?tab=mcp`；当前接入页见上方“站点文件搬进 `site/`”。
 - **飞书内容群只推 `T1`、`T1_5` 信源的精选。**
 
+### 换默认模型服务商
+
+所有步骤默认用的模型由 `.env` 的 `LLM_*` 决定，换服务商不用改代码、不用重建镜像，也不用跑数据库迁移。以从 DeepSeek 换成 MiniMax 国内站为例，把 `.env` 里这几项改成：
+
+```dotenv
+LLM_BASE_URL=https://api.minimax.cn/v1
+LLM_API_KEY=<MiniMax 控制台“接口密钥”里创建的 key>
+LLM_MODEL=MiniMax-M3.1-Flash
+LLM_EXTRA_JSON={"reasoning_effort":"low"}
+LLM_REASONING_TOKENS=4000
+LLM_JSON_MODE=false
+```
+
+- `LLM_EXTRA_JSON` 必须一起换掉，不能留下旧服务商的参数。MiniMax-M3.1-Flash 强制开启思考，传 `{"thinking":{"type":"disabled"}}` 会返回 400，每一步都失败；想少思考就调低 `reasoning_effort`，关不掉。
+- 强制思考的模型一定要设 `LLM_REASONING_TOKENS`。思考 token 和答案共用输出额度，不预留会报 `finish_reason=length`、答案为空。
+- MiniMax 的 OpenAI 兼容接口没有 `response_format`，把 `LLM_JSON_MODE` 设为 `false`；提示词本来就要求输出 JSON，解析器也能从代码围栏里取出 JSON。
+- 新模型的价格和输出长度都和旧模型不同，先按后台“模型与评测”页的调用次数和 token 量估一下成本，再决定是否一次全切。
+- 后台“模型与评测”页按步骤切换过的模型（`settings` 里 `models.*`）优先于 `.env`，这些步骤不会跟着变；在那一页对每一步选“恢复默认”。库里有没有这类记录：`SELECT key, value FROM settings WHERE key LIKE 'models.%';`
+- MiniMax 充值用户的限速是每分钟 200 次请求；并发大的站可以在后台“设置 → 付费请求上限”把 `llm` 的每分钟上限调到 180 以内，免得触发 1002 限流。
+
+改完重建 API 和 worker；`docker compose restart` 不会重新读 `env_file`：
+
+```bash
+sudo cp .env .env.bak.$(date +%F-%H%M%S)
+sudo docker compose up -d --force-recreate api worker
+```
+
+`web` 不用重启，也没有迁移要跑。等几分钟有新任务后验证：
+
+```bash
+sudo docker compose exec -T api env | grep -E '^LLM_'
+sudo docker compose exec -T db psql -U powerhot -d powerhot -c \
+  "SELECT model, status, count(*) FROM receipt_attempts WHERE started_at > now() - interval '10 minutes' GROUP BY 1,2 ORDER BY 3 DESC;"
+```
+
+正常应看到新模型名和 `received`；失败原因看同表的 `error` 列。回滚把 `.env.bak.*` 换回去，再执行一次 `--force-recreate`。不用 Docker 的部署改完 `.env` 后重启 api 和 worker 两个进程即可。
+
 ### 备份
 
 在 `.env` 里配置 `DB_BACKUP_STORE_*`（任何 S3 兼容的对象存储），每天 04:10 自动备份到那里。`DB_BACKUP_STORE_SECRET_ID`、`DB_BACKUP_STORE_SECRET_KEY`、`DB_BACKUP_STORE_BUCKET`、`DB_BACKUP_STORE_REGION` 四项都要填；不填 `DB_BACKUP_STORE_DOMAIN` 时按腾讯云 COS 拼地址（`<桶名>.cos.<地域>.myqcloud.com`），用其他 S3 兼容存储时，把这个存储桶的访问域名（含桶名，例如 AWS S3 的 `<桶名>.s3.<地域>.amazonaws.com`）填进 `DB_BACKUP_STORE_DOMAIN`。
