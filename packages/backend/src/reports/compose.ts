@@ -289,20 +289,30 @@ const nextMonth = (label: string) => {
 /**
  * The scheduled run (every half hour): every issue due by `now` that does not exist yet, oldest first.
  * The newest one appears at the first run after it falls due (above); a long stop or an older gap is
- * filled too. A kind with no issue yet only gets its latest due one. An issue that fails does not hold
- * up the others; at most `limit` issues are written per run, the next run continues.
+ * filled too. A kind with no issue yet only gets its latest due one; a weekly or monthly whose period
+ * ends before the site's first daily has nothing to compile and is skipped instead of failed forever.
+ * An issue that fails does not hold up the others; at most `limit` issues are written per run, the next
+ * run continues.
  */
-export async function composeDueReports(now = new Date(), limit = 8): Promise<{ generated: string[]; failed: string[] }> {
+export async function composeDueReports(now = new Date(), limit = 8): Promise<{ generated: string[]; failed: string[]; skipped: string[] }> {
   const generated: string[] = [];
   const failed: string[] = [];
-  const kinds: Array<{ kind: ReportKind; due: string; next: (k: string) => string; compose: (k: string) => Promise<unknown> }> = [
-    { kind: "daily", due: dueDaily(now), next: (k) => addDays(k, 1), compose: composeDaily },
-    { kind: "weekly", due: dueWeekly(now), next: nextWeek, compose: composeWeekly },
-    { kind: "monthly", due: dueMonthly(now), next: nextMonth, compose: composeMonthly },
+  const skipped: string[] = [];
+  // Weekly and monthly issues are compiled from dailies: before the first one exists there is nothing
+  // to compile, so a pre-launch month must not be retried as a failure on every run.
+  const [firstDaily] = await sql<{ key: string }[]>`SELECT key FROM reports WHERE kind = 'daily' ORDER BY key LIMIT 1`;
+  const kinds: Array<{ kind: ReportKind; due: string; next: (k: string) => string; periodEnd: (k: string) => string; compose: (k: string) => Promise<unknown> }> = [
+    { kind: "daily", due: dueDaily(now), next: (k) => addDays(k, 1), periodEnd: (k) => k, compose: composeDaily },
+    { kind: "weekly", due: dueWeekly(now), next: nextWeek, periodEnd: (k) => isoWeekRange(k)?.end ?? k, compose: composeWeekly },
+    { kind: "monthly", due: dueMonthly(now), next: nextMonth, periodEnd: (k) => monthRange(k)?.end ?? k, compose: composeMonthly },
   ];
   kinds: for (const k of kinds) {
     const have = new Set((await sql<{ key: string }[]>`SELECT key FROM reports WHERE kind = ${k.kind}`).map((r) => r.key));
     const first = [...have].sort()[0] ?? k.due;
+    if (have.size === 0 && k.kind !== "daily" && (!firstDaily || k.periodEnd(first) < firstDaily.key)) {
+      skipped.push(`${k.kind}:${first}`);
+      continue;
+    }
     for (let key = first; key <= k.due; key = k.next(key)) {
       if (have.has(key)) continue;
       if (shutdownSignal.signal.aborted || generated.length >= limit) break kinds;
@@ -316,5 +326,5 @@ export async function composeDueReports(now = new Date(), limit = 8): Promise<{ 
     }
   }
   if (failed.length) throw new Error(`reports: ${failed.join(", ")} failed${generated.length ? `; ${generated.join(", ")} written` : ""}`);
-  return { generated, failed };
+  return { generated, failed, skipped };
 }

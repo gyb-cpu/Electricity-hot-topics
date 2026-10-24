@@ -272,11 +272,16 @@ async function missedFacts(start: Date, end: Date): Promise<Array<{ key: string;
     .map(([key, members]) => ({ key, rows: members }));
 }
 
-/** The window's public reports the editors scored: none means judging did not run there, not a quiet day. */
+/**
+ * How many articles in the window the editors judged: none means judging did not run there, not a quiet
+ * day. Analyses count, not scored publications: a day whose articles all failed the editors' bar is a
+ * quiet day to publish, while counting scored reports made it look like an upstream failure forever.
+ */
 async function judgedReports(start: Date, end: Date): Promise<number> {
   const [row] = await sql<{ n: number }[]>`
-    SELECT count(*)::int AS n FROM publications p
-    WHERE ${listedCondition(end)} AND p.score IS NOT NULL AND NOT p.backfill AND p.timeline_at >= ${start} AND p.timeline_at < ${end}`;
+    SELECT count(*)::int AS n FROM analyses an JOIN articles a ON a.id = an.article_id
+    WHERE an.input_revision = a.revision AND an.relevance IS NOT NULL AND NOT a.backfill
+      AND a.timeline_at >= ${start} AND a.timeline_at < ${end}`;
   return row!.n;
 }
 

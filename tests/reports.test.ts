@@ -10,7 +10,7 @@ import { stopBoss } from "@powerhot/backend/jobs/queue";
 import { publishArticle } from "@powerhot/backend/publication/publish";
 import { loadReport } from "@powerhot/backend/publication/reports";
 import { composeDaily, dueDaily, dueMonthly, dueWeekly } from "@powerhot/backend/reports/compose";
-import { SITE } from "@powerhot/site";
+import { REPORTS, SITE } from "@powerhot/site";
 
 const T = tag();
 const SOURCE = `test-reports-${T}`;
@@ -36,6 +36,24 @@ test("a daily with nothing judged in its window is refused, not published as a q
   await assert.rejects(composeDaily(date), /nothing judged/);
   const [row] = await sql`SELECT 1 FROM reports WHERE kind = 'daily' AND key = ${date}`;
   assert.equal(row, undefined);
+});
+
+test("a day whose articles were judged but all fell below the bar is a quiet issue, not a failure", async () => {
+  const source = `${SOURCE}-quiet`;
+  await sql`INSERT INTO sources (id, name, kind, tier, participation_mode, next_fetch_at)
+            VALUES (${source}, 'Quiet day', 'rss', 'T1', 'editorial', '2100-01-01')`;
+  const at = editionAt("daily", "2098-01-16", -3600);
+  const { articleId, backfill } = await upsertMaterial({
+    sourceId: source, url: `https://example.com/quiet-${T}`, title: `Q ${T}`, bodyText: "b", bodyStatus: "ok",
+    publishedAt: at, discoveredAt: at, via: "fetch",
+  });
+  assert.equal(backfill, false);
+  await sql`INSERT INTO analyses (article_id, input_revision, origin, relevance, category, title_zh, summary_zh, score, selected)
+            VALUES (${articleId}, 1, 'rule', 'block', 'policy', ${`标题-${T}`}, ${`摘要-${T}`}, NULL, false)`;
+  const issue = await composeDaily("2098-01-16");
+  assert.equal(issue.entries, 0);
+  const [row] = await sql<{ content: { lead: { title: string } } }[]>`SELECT content FROM reports WHERE kind = 'daily' AND key = '2098-01-16'`;
+  assert.equal(row!.content.lead.title, REPORTS.quiet.title);
 });
 
 test("a weekly that froze no summaries shows the articles' public summaries", async () => {

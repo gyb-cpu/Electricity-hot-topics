@@ -86,3 +86,13 @@ test("empty older gaps cannot starve a later daily, weekly or monthly, and failu
     assert.ok(await report(kind!, key!), `${kind} ${key} was recovered past the empty gaps`);
   }
 });
+
+test("a weekly or monthly whose period ends before the first daily is skipped, not failed forever", async () => {
+  // The site launched mid-week: the periods before its first daily have nothing to compile.
+  await sql`INSERT INTO reports (kind, key, window_start, window_end, content, generated_at)
+    VALUES ('daily', '2024-03-05', now(), now(), ${sql.json({ sections: [] })}, now())`;
+  const result = await composeDueReports(editionAt("daily", "2024-03-05", 3600));
+  assert.deepEqual(result.failed, []);
+  assert.ok(result.skipped.includes("weekly:2024-W09"), JSON.stringify(result.skipped));
+  assert.ok(result.skipped.includes("monthly:2024-02"), JSON.stringify(result.skipped));
+});
